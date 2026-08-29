@@ -1,0 +1,770 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  MANAGER
+  WORKER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  LOCKED
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PLANNING
+  IN_PRODUCTION
+  PARTIALLY_COMPLETED
+  READY
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CLOSED
+  CANCELLED
+}
+
+enum JobStatus {
+  PLANNED
+  WAITING
+  MATERIAL_ISSUED
+  RUNNING
+  PAUSED
+  QC_PENDING
+  COMPLETED
+  HOLD
+  REWORK
+  REJECTED
+  CLOSED
+}
+
+enum QcStatus {
+  PENDING
+  PASSED
+  HOLD
+  REWORK
+  REJECTED
+}
+
+enum StockCategory {
+  RAW_MATERIAL
+  YARN
+  GREY_FABRIC
+  CHEMICAL
+  FINISHED_FABRIC
+  PACKING
+}
+
+enum StockTxnType {
+  OPENING
+  PURCHASE_IN
+  PRODUCTION_IN
+  PRODUCTION_ISSUE
+  KNITTING_ISSUE
+  KNITTING_RETURN
+  GREY_FABRIC_IN
+  DYEING_ISSUE
+  DYEING_OUTPUT
+  FINISHING_OUTPUT
+  QC_APPROVED
+  DISPATCH_OUT
+  RETURN_IN
+  TRANSFER_IN
+  TRANSFER_OUT
+  WASTE
+  ADJUSTMENT
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  CRITICAL
+}
+
+enum NotificationType {
+  JOB_ASSIGNED
+  JOB_STARTED
+  JOB_COMPLETED
+  QC_FAILED
+  QC_PASSED
+  HIGH_WASTAGE
+  LOW_STOCK
+  STOCK_DIFFERENCE
+  MACHINE_BREAKDOWN
+  MAINTENANCE_DUE
+  DELIVERY_DUE
+  DELIVERY_DELAYED
+  PAYMENT_DUE
+  ORDER_DUE
+  ORDER_COMPLETED
+  SYSTEM
+}
+
+enum MachineStatus {
+  RUNNING
+  IDLE
+  MAINTENANCE
+  BREAKDOWN
+  DISABLED
+}
+
+enum DispatchStatus {
+  READY
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  RETURNED
+}
+
+model User {
+  id                  String           @id @default(uuid())
+  name                String
+  email               String           @unique
+  passwordHash        String
+  role                 Role
+  status               UserStatus       @default(ACTIVE)
+  employeeId           String?          @unique
+  employee             Employee?        @relation(fields: [employeeId], references: [id])
+  refreshSessions      RefreshSession[]
+  notifications        Notification[]
+  createdAuditLogs     AuditLog[]        @relation("AuditActor")
+  yarnEntries          YarnProductionEntry[] @relation("YarnWorker")
+  knittingEntries      KnittingProductionEntry[] @relation("KnittingWorker")
+  dyeingEntries        DyeingEntry[]     @relation("DyeingWorker")
+  qcInspections        QualityInspection[] @relation("QcInspector")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model RefreshSession {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash   String
+  userAgent   String?
+  ipAddress   String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+  @@index([userId, expiresAt])
+}
+
+model Customer {
+  id              String       @id @default(uuid())
+  code            String       @unique
+  name            String
+  company         String?
+  contactPerson   String?
+  mobile          String?
+  email           String?
+  gst             String?
+  billingAddress  String?
+  shippingAddress String?
+  state           String?
+  city            String?
+  creditLimit     Decimal?     @db.Decimal(14, 2)
+  paymentTerms    String?
+  openingBalance  Decimal      @default(0) @db.Decimal(14, 2)
+  active          Boolean      @default(true)
+  orders          SalesOrder[]
+  invoices        Invoice[]
+  payments        CustomerPayment[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Supplier {
+  id              String       @id @default(uuid())
+  code            String       @unique
+  name            String
+  company         String?
+  contactPerson   String?
+  mobile          String?
+  email           String?
+  gst             String?
+  address         String?
+  materialCategory String?
+  paymentTerms    String?
+  openingBalance  Decimal      @default(0) @db.Decimal(14, 2)
+  active          Boolean      @default(true)
+  purchaseOrders  PurchaseOrder[]
+  payments        SupplierPayment[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Warehouse {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  location    String?
+  active      Boolean  @default(true)
+  stockTxns   StockTransaction[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Employee {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  mobile      String?
+  department  String
+  shift       String?
+  joiningDate DateTime?
+  active      Boolean  @default(true)
+  user        User?
+  machines    Machine[] @relation("MachineOperator")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Machine {
+  id              String        @id @default(uuid())
+  code            String        @unique
+  name            String
+  department      String
+  type            String?
+  capacityKg      Decimal?      @db.Decimal(12, 3)
+  manufacturer    String?
+  purchaseDate    DateTime?
+  status          MachineStatus @default(IDLE)
+  operatorId      String?
+  operator        Employee?     @relation("MachineOperator", fields: [operatorId], references: [id])
+  knittingJobs    KnittingJob[]
+  dyeingBatches   DyeingBatch[]
+  maintenance     MaintenanceRecord[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model SalesOrder {
+  id              String       @id @default(uuid())
+  orderNo         String       @unique
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  poNumber        String?
+  orderDate       DateTime     @default(now())
+  expectedDelivery DateTime?
+  status          OrderStatus  @default(DRAFT)
+  notes           String?
+  items           SalesOrderItem[]
+  productionOrders ProductionOrder[]
+  invoices        Invoice[]
+  packingLists    PackingList[]
+  dispatches      Dispatch[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  @@index([customerId, status])
+  @@index([orderDate])
+}
+
+model SalesOrderItem {
+  id              String      @id @default(uuid())
+  salesOrderId    String
+  salesOrder      SalesOrder  @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  fabricType      String
+  yarnType        String
+  yarnCount       String
+  color           String
+  gsm             Int?
+  diameter        String?
+  width           String?
+  quantityKg      Decimal     @db.Decimal(14, 3)
+  rate            Decimal?    @db.Decimal(14, 2)
+  amount          Decimal?    @db.Decimal(14, 2)
+  productionOrders ProductionOrder[]
+  @@index([salesOrderId])
+}
+
+model ProductionOrder {
+  id                String      @id @default(uuid())
+  productionNo      String      @unique
+  salesOrderId      String
+  salesOrder        SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  salesOrderItemId  String
+  salesOrderItem    SalesOrderItem @relation(fields: [salesOrderItemId], references: [id])
+  plannedQtyKg      Decimal     @db.Decimal(14, 3)
+  requiredYarnKg    Decimal     @db.Decimal(14, 3)
+  expectedKnittingLossPct Decimal @default(2) @db.Decimal(5, 2)
+  expectedDyeingLossPct   Decimal @default(3) @db.Decimal(5, 2)
+  priority          String      @default("NORMAL")
+  startDate         DateTime?
+  dueDate           DateTime?
+  status            JobStatus   @default(PLANNED)
+  yarnEntries       YarnProductionEntry[]
+  knittingJobs      KnittingJob[]
+  dyeingBatches     DyeingBatch[]
+  finishingJobs     FinishingJob[]
+  inspections       QualityInspection[]
+  finishedRolls     FinishedFabricRoll[]
+  wasteEntries       WasteEntry[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  @@index([salesOrderId, status])
+}
+
+model YarnProductionEntry {
+  id              String          @id @default(uuid())
+  entryNo         String          @unique
+  productionOrderId String
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  processName     String
+  lotNo           String
+  yarnCount       String
+  machineCode     String?
+  shift           String?
+  workerId        String?
+  worker          User?           @relation("YarnWorker", fields: [workerId], references: [id])
+  inputKg         Decimal         @db.Decimal(14, 3)
+  outputKg        Decimal         @db.Decimal(14, 3)
+  wasteKg         Decimal         @default(0) @db.Decimal(14, 3)
+  balanceKg       Decimal         @db.Decimal(14, 3)
+  approved        Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  @@index([productionOrderId, lotNo])
+}
+
+model YarnStockLot {
+  id          String   @id @default(uuid())
+  lotNo       String   @unique
+  yarnType    String
+  yarnCount   String
+  color       String?
+  coneCount   Int      @default(0)
+  netWeightKg Decimal  @db.Decimal(14, 3)
+  warehouseCode String
+  rack        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model KnittingJob {
+  id                String          @id @default(uuid())
+  jobNo             String          @unique
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  yarnLotNo         String
+  yarnCount         String
+  fabricType        String
+  gsm               Int?
+  diameter          String?
+  gauge             String?
+  machineId         String?
+  machine           Machine?        @relation(fields: [machineId], references: [id])
+  yarnIssuedKg      Decimal         @db.Decimal(14, 3)
+  status            JobStatus       @default(PLANNED)
+  assignedWorkerId  String?
+  entries           KnittingProductionEntry[]
+  greyRolls         GreyFabricRoll[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  @@index([productionOrderId, status])
+}
+
+model KnittingProductionEntry {
+  id            String      @id @default(uuid())
+  knittingJobId String
+  knittingJob   KnittingJob @relation(fields: [knittingJobId], references: [id])
+  workerId      String?
+  worker        User?       @relation("KnittingWorker", fields: [workerId], references: [id])
+  shift         String?
+  outputKg      Decimal     @db.Decimal(14, 3)
+  wasteKg       Decimal     @default(0) @db.Decimal(14, 3)
+  balanceKg     Decimal     @db.Decimal(14, 3)
+  approved      Boolean     @default(false)
+  notes         String?
+  createdAt     DateTime    @default(now())
+}
+
+model GreyFabricRoll {
+  id            String      @id @default(uuid())
+  rollNo        String      @unique
+  knittingJobId String
+  knittingJob   KnittingJob @relation(fields: [knittingJobId], references: [id])
+  fabricType    String
+  gsm           Int?
+  diameter      String?
+  width         String?
+  weightKg      Decimal     @db.Decimal(14, 3)
+  qcStatus      QcStatus    @default(PENDING)
+  warehouseCode String
+  dyeingLinks   DyeingBatchRoll[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model DyeRecipe {
+  id          String          @id @default(uuid())
+  name        String
+  color       String
+  shade       String?
+  fabricType  String
+  items       DyeRecipeItem[]
+  batches     DyeingBatch[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Chemical {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  unit        String
+  minStock    Decimal  @default(0) @db.Decimal(14, 3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  recipeItems DyeRecipeItem[]
+}
+
+model DyeRecipeItem {
+  id           String    @id @default(uuid())
+  recipeId     String
+  recipe       DyeRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  chemicalId   String
+  chemical     Chemical  @relation(fields: [chemicalId], references: [id])
+  qtyPerKg     Decimal   @db.Decimal(14, 6)
+  unit         String
+}
+
+model DyeingBatch {
+  id                String          @id @default(uuid())
+  batchNo           String          @unique
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  color             String
+  shade             String?
+  plannedQtyKg      Decimal         @db.Decimal(14, 3)
+  machineId         String?
+  machine           Machine?        @relation(fields: [machineId], references: [id])
+  recipeId          String?
+  recipe             DyeRecipe?      @relation(fields: [recipeId], references: [id])
+  status            JobStatus       @default(PLANNED)
+  assignedWorkerId  String?
+  rolls             DyeingBatchRoll[]
+  entries           DyeingEntry[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  @@index([productionOrderId, status])
+}
+
+model DyeingBatchRoll {
+  id          String         @id @default(uuid())
+  batchId     String
+  batch       DyeingBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  greyRollId  String
+  greyRoll    GreyFabricRoll @relation(fields: [greyRollId], references: [id])
+  inputKg     Decimal        @db.Decimal(14, 3)
+  @@unique([batchId, greyRollId])
+}
+
+model DyeingEntry {
+  id          String      @id @default(uuid())
+  batchId     String
+  batch       DyeingBatch @relation(fields: [batchId], references: [id])
+  workerId    String?
+  worker      User?       @relation("DyeingWorker", fields: [workerId], references: [id])
+  processName String
+  inputKg     Decimal     @db.Decimal(14, 3)
+  outputKg    Decimal     @db.Decimal(14, 3)
+  lossKg      Decimal     @default(0) @db.Decimal(14, 3)
+  rejectedKg  Decimal     @default(0) @db.Decimal(14, 3)
+  balanceKg   Decimal     @db.Decimal(14, 3)
+  temperature Decimal?    @db.Decimal(8, 2)
+  durationMin Int?
+  approved    Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+}
+
+model FinishingJob {
+  id                String          @id @default(uuid())
+  jobNo             String          @unique
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  processName       String
+  inputKg           Decimal         @db.Decimal(14, 3)
+  outputKg          Decimal         @db.Decimal(14, 3)
+  lossKg            Decimal         @default(0) @db.Decimal(14, 3)
+  gsmBefore         Int?
+  gsmAfter          Int?
+  widthBefore       String?
+  widthAfter        String?
+  status            JobStatus       @default(PLANNED)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model QualityInspection {
+  id                String          @id @default(uuid())
+  inspectionNo      String          @unique
+  productionOrderId String
+  productionOrder   ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  stage             String
+  status            QcStatus        @default(PENDING)
+  inputKg           Decimal         @db.Decimal(14, 3)
+  approvedKg        Decimal         @default(0) @db.Decimal(14, 3)
+  rejectedKg        Decimal         @default(0) @db.Decimal(14, 3)
+  reworkKg          Decimal         @default(0) @db.Decimal(14, 3)
+  inspectorId       String?
+  inspector         User?           @relation("QcInspector", fields: [inspectorId], references: [id])
+  measurements      Json?
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+model FinishedFabricRoll {
+  id                String          @id @default(uuid())
+  rollNo             String          @unique
+  productionOrderId  String
+  productionOrder    ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  color              String
+  shade              String?
+  gsm                Int?
+  width              String?
+  netWeightKg        Decimal         @db.Decimal(14, 3)
+  qcStatus           QcStatus        @default(PASSED)
+  warehouseCode      String
+  packingItems       PackingListItem[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model PackingList {
+  id          String      @id @default(uuid())
+  packingNo   String      @unique
+  salesOrderId String
+  salesOrder  SalesOrder  @relation(fields: [salesOrderId], references: [id])
+  packingType String?
+  netWeightKg Decimal     @db.Decimal(14, 3)
+  grossWeightKg Decimal?  @db.Decimal(14, 3)
+  items       PackingListItem[]
+  dispatches  Dispatch[]
+  createdAt   DateTime    @default(now())
+}
+
+model PackingListItem {
+  id          String             @id @default(uuid())
+  packingListId String
+  packingList PackingList        @relation(fields: [packingListId], references: [id], onDelete: Cascade)
+  rollId      String
+  roll        FinishedFabricRoll @relation(fields: [rollId], references: [id])
+  weightKg    Decimal            @db.Decimal(14, 3)
+  @@unique([packingListId, rollId])
+}
+
+model Dispatch {
+  id            String         @id @default(uuid())
+  dispatchNo    String         @unique
+  salesOrderId  String
+  salesOrder    SalesOrder     @relation(fields: [salesOrderId], references: [id])
+  packingListId String
+  packingList   PackingList    @relation(fields: [packingListId], references: [id])
+  invoiceId     String?
+  invoice       Invoice?       @relation(fields: [invoiceId], references: [id])
+  dispatchDate  DateTime       @default(now())
+  vehicle       String?
+  driver        String?
+  transporter   String?
+  lrNumber      String?
+  totalWeightKg Decimal        @db.Decimal(14, 3)
+  status        DispatchStatus @default(READY)
+  deliveries    Delivery[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  deliveryNo      String         @unique
+  dispatchId      String
+  dispatch        Dispatch       @relation(fields: [dispatchId], references: [id])
+  receivedKg      Decimal        @db.Decimal(14, 3)
+  shortageKg      Decimal        @default(0) @db.Decimal(14, 3)
+  damagedKg       Decimal        @default(0) @db.Decimal(14, 3)
+  returnedKg      Decimal        @default(0) @db.Decimal(14, 3)
+  deliveryDate    DateTime       @default(now())
+  podObjectKey    String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+}
+
+model PurchaseOrder {
+  id            String      @id @default(uuid())
+  poNo          String      @unique
+  supplierId    String
+  supplier      Supplier    @relation(fields: [supplierId], references: [id])
+  orderDate     DateTime    @default(now())
+  expectedDate  DateTime?
+  status        String      @default("DRAFT")
+  items         PurchaseOrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  itemCode        String
+  itemName        String
+  quantity        Decimal       @db.Decimal(14, 3)
+  unit            String
+  rate            Decimal       @db.Decimal(14, 2)
+}
+
+model Invoice {
+  id            String       @id @default(uuid())
+  invoiceNo     String       @unique
+  customerId    String
+  customer      Customer     @relation(fields: [customerId], references: [id])
+  salesOrderId  String?
+  salesOrder    SalesOrder?  @relation(fields: [salesOrderId], references: [id])
+  taxableValue  Decimal      @db.Decimal(14, 2)
+  gstAmount     Decimal      @default(0) @db.Decimal(14, 2)
+  totalAmount   Decimal      @db.Decimal(14, 2)
+  dueDate       DateTime?
+  createdAt     DateTime     @default(now())
+  payments      CustomerPayment[]
+  dispatches    Dispatch[]
+}
+
+model CustomerPayment {
+  id          String    @id @default(uuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  invoiceId   String?
+  invoice     Invoice?  @relation(fields: [invoiceId], references: [id])
+  amount      Decimal   @db.Decimal(14, 2)
+  mode        String
+  referenceNo String?
+  bank        String?
+  paidAt      DateTime  @default(now())
+  notes       String?
+}
+
+model SupplierPayment {
+  id          String    @id @default(uuid())
+  supplierId  String
+  supplier    Supplier  @relation(fields: [supplierId], references: [id])
+  amount      Decimal   @db.Decimal(14, 2)
+  mode        String
+  referenceNo String?
+  paidAt      DateTime  @default(now())
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  expenseNo   String   @unique
+  expenseDate DateTime @default(now())
+  category    String
+  subcategory String?
+  description String?
+  amount      Decimal  @db.Decimal(14, 2)
+  paymentMode String
+  branch      String?
+  attachmentKey String?
+  createdById String?
+  createdAt   DateTime @default(now())
+}
+
+model WasteEntry {
+  id                String          @id @default(uuid())
+  productionOrderId String?
+  productionOrder   ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+  process           String
+  quantityKg        Decimal         @db.Decimal(14, 3)
+  reason            String
+  machineCode       String?
+  workerName        String?
+  approvedBy        String?
+  createdAt         DateTime        @default(now())
+}
+
+model StockTransaction {
+  id            String        @id @default(uuid())
+  category      StockCategory
+  txnType       StockTxnType
+  itemCode      String
+  itemName      String
+  lotNo         String?
+  warehouseId   String
+  warehouse     Warehouse     @relation(fields: [warehouseId], references: [id])
+  quantityIn    Decimal       @default(0) @db.Decimal(14, 3)
+  quantityOut   Decimal       @default(0) @db.Decimal(14, 3)
+  unit          String        @default("KG")
+  referenceType String
+  referenceId   String
+  productionOrderId String?
+  createdById   String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  @@index([category, itemCode, warehouseId])
+  @@index([lotNo])
+  @@index([referenceType, referenceId])
+  @@index([productionOrderId])
+}
+
+model Notification {
+  id            String               @id @default(uuid())
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  message       String
+  type          NotificationType
+  priority      NotificationPriority @default(NORMAL)
+  referenceType String?
+  referenceId   String?
+  isRead        Boolean              @default(false)
+  readAt        DateTime?
+  createdAt     DateTime             @default(now())
+  @@index([userId, isRead, createdAt])
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorId       String?
+  actor         User?    @relation("AuditActor", fields: [actorId], references: [id])
+  action        String
+  module        String
+  entity        String
+  entityId      String?
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+  @@index([module, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model MaintenanceRecord {
+  id            String   @id @default(uuid())
+  machineId     String
+  machine       Machine  @relation(fields: [machineId], references: [id])
+  complaint     String
+  technician    String?
+  spareParts    String?
+  cost          Decimal? @db.Decimal(14, 2)
+  startedAt     DateTime
+  endedAt       DateTime?
+  resolution    String?
+  createdAt     DateTime @default(now())
+}
+
+model SystemSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}

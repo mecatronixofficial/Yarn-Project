@@ -1,0 +1,2 @@
+# Daily PostgreSQL backup at 02:00 server time
+0 2 * * * cd /var/www/yarn-production-erp && /usr/bin/env bash -lc 'source backend/.env && scripts/backup.sh >> /var/log/yarn-erp-backup.log 2>&1'

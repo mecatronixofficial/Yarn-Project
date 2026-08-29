@@ -1,0 +1,2 @@
+import { IsEmail, IsNumber, IsOptional, IsString } from 'class-validator';
+export class SupplierDto { @IsString() code!:string; @IsString() name!:string; @IsOptional() @IsString() company?:string; @IsOptional() @IsString() contactPerson?:string; @IsOptional() @IsString() mobile?:string; @IsOptional() @IsEmail() email?:string; @IsOptional() @IsString() gst?:string; @IsOptional() @IsString() address?:string; @IsOptional() @IsString() materialCategory?:string; @IsOptional() @IsString() paymentTerms?:string; @IsOptional() @IsNumber() openingBalance?:number; }

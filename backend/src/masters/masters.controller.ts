@@ -1,0 +1,8 @@
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common'; import { AuthGuard } from '@nestjs/passport'; import { Role } from '@prisma/client'; import { Roles } from '../common/decorators/roles.decorator'; import { RolesGuard } from '../common/guards/roles.guard'; import { MastersService } from './masters.service'; import { CustomerDto } from './dto/customer.dto'; import { SupplierDto } from './dto/supplier.dto'; import { MachineDto } from './dto/machine.dto'; import { EmployeeDto } from './dto/employee.dto';
+@Controller('masters') @UseGuards(AuthGuard('jwt'),RolesGuard) export class MastersController { constructor(private s:MastersService){}
+ @Get('customers') @Roles(Role.SUPERADMIN,Role.MANAGER) customers(){return this.s.customers()} @Post('customers') @Roles(Role.SUPERADMIN,Role.MANAGER) customer(@Body() d:CustomerDto){return this.s.createCustomer(d)}
+ @Get('suppliers') @Roles(Role.SUPERADMIN,Role.MANAGER) suppliers(){return this.s.suppliers()} @Post('suppliers') @Roles(Role.SUPERADMIN,Role.MANAGER) supplier(@Body() d:SupplierDto){return this.s.createSupplier(d)}
+ @Get('machines') @Roles(Role.SUPERADMIN,Role.MANAGER,Role.WORKER) machines(){return this.s.machines()} @Post('machines') @Roles(Role.SUPERADMIN,Role.MANAGER) machine(@Body() d:MachineDto){return this.s.createMachine(d)}
+ @Get('employees') @Roles(Role.SUPERADMIN,Role.MANAGER) employees(){return this.s.employees()} @Post('employees') @Roles(Role.SUPERADMIN,Role.MANAGER) employee(@Body() d:EmployeeDto){return this.s.createEmployee(d)}
+ @Get('warehouses') @Roles(Role.SUPERADMIN,Role.MANAGER) warehouses(){return this.s.warehouses()}
+}

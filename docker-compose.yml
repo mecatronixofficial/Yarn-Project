@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: yarn-erp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: yarn_erp
+      POSTGRES_PASSWORD: yarn_erp_password
+      POSTGRES_DB: yarn_erp
+    ports:
+      - "5432:5432"
+    volumes:
+      - yarn_erp_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yarn_erp -d yarn_erp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  yarn_erp_pg:

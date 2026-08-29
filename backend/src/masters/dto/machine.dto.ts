@@ -1,0 +1,2 @@
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator'; import { MachineStatus } from '@prisma/client';
+export class MachineDto { @IsString() code!:string; @IsString() name!:string; @IsString() department!:string; @IsOptional() @IsString() type?:string; @IsOptional() @IsNumber() capacityKg?:number; @IsOptional() @IsString() manufacturer?:string; @IsOptional() @IsEnum(MachineStatus) status?:MachineStatus; }

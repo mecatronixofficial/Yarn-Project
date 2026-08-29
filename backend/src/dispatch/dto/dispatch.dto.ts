@@ -1,0 +1,4 @@
+import { IsArray, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+export class CreatePackingDto { @IsString() salesOrderId!:string; @IsArray() rollIds!:string[]; @IsOptional() @IsString() packingType?:string; @IsOptional() @IsNumber() grossWeightKg?:number; }
+export class CreateDispatchDto { @IsString() salesOrderId!:string; @IsString() packingListId!:string; @IsOptional() @IsString() invoiceId?:string; @IsOptional() @IsString() vehicle?:string; @IsOptional() @IsString() driver?:string; @IsOptional() @IsString() transporter?:string; @IsOptional() @IsString() lrNumber?:string; @IsString() warehouseId!:string; }
+export class CreateDeliveryDto { @IsNumber() @Min(0) receivedKg!:number; @IsNumber() @Min(0) shortageKg!:number; @IsNumber() @Min(0) damagedKg!:number; @IsNumber() @Min(0) returnedKg!:number; @IsOptional() @IsString() podObjectKey?:string; @IsOptional() @IsString() notes?:string; }
