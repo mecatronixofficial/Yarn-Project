@@ -1,5 +1,5 @@
 export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 export async function api<T = any>(
   path: string,
   init: RequestInit = {},
