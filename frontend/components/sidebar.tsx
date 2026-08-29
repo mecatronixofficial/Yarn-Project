@@ -19,9 +19,19 @@ import {
   Wrench,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { Role } from "@/lib/types";
 import { useAuth } from "./auth-provider";
-const all = [
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  roles: Role[];
+};
+
+const all: NavItem[] = [
   {
     href: "/dashboard",
     label: "Dashboard",
@@ -125,7 +135,7 @@ const all = [
     icon: Settings,
     roles: ["SUPERADMIN"],
   },
-] as const;
+];
 export function Sidebar({
   open,
   onClose,
@@ -135,7 +145,7 @@ export function Sidebar({
 }) {
   const path = usePathname();
   const { user } = useAuth();
-  const nav = all.filter((i) => user && i.roles.includes(user.role as any));
+  const nav = user ? all.filter((i) => i.roles.includes(user.role)) : [];
   return (
     <>
       <div

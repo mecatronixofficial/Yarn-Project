@@ -22,7 +22,8 @@ const schema = z.object({
   quantityKg: z.coerce.number().positive(),
   rate: z.coerce.number().nonnegative(),
 });
-type F = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
+type FormData = z.output<typeof schema>;
 export default function NewOrder() {
   const [customers, setCustomers] = useState<any[]>([]);
   const router = useRouter();
@@ -33,7 +34,7 @@ export default function NewOrder() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<F>({
+  } = useForm<FormInput, any, FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       fabricType: "Single Jersey",
@@ -45,7 +46,7 @@ export default function NewOrder() {
       rate: 385,
     },
   });
-  const submit = async (v: F) => {
+  const submit = async (v: FormData) => {
     const r = await api<any>("/orders", {
       method: "POST",
       body: JSON.stringify({
@@ -69,7 +70,7 @@ export default function NewOrder() {
     });
     router.push(`/orders/${r.id}`);
   };
-  const field = (name: keyof F, label: string, type = "text") => (
+  const field = (name: keyof FormInput, label: string, type = "text") => (
     <div>
       <label className="erp-label">{label}</label>
       <Input type={type} {...register(name)} />
