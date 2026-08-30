@@ -31,6 +31,8 @@ async function main() {
   await prisma.customerPayment.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.salesOrder.deleteMany();
+  await prisma.purchaseReceiptItem.deleteMany();
+  await prisma.purchaseReceipt.deleteMany();
   await prisma.purchaseOrderItem.deleteMany();
   await prisma.purchaseOrder.deleteMany();
   await prisma.supplierPayment.deleteMany();
@@ -85,12 +87,12 @@ async function main() {
 
   const order = await prisma.salesOrder.create({
     data: {
-      orderNo: 'SO-2026-000001', customerId: customer.id, poNumber: 'PO-SRI-8841', status: 'IN_PRODUCTION', expectedDelivery: new Date('2026-09-05T00:00:00+05:30'),
+      orderNo: 'SO-2026-000001', customerId: customer.id, poNumber: 'PO-SRI-8841', status: 'PARTIALLY_DELIVERED', expectedDelivery: new Date('2026-09-05T00:00:00+05:30'),
       items: { create: [{ fabricType: 'Single Jersey', yarnType: 'Combed Cotton', yarnCount: '30s', color: 'Navy Blue', gsm: 180, diameter: '34 inch', width: '72 inch', quantityKg: 10000, rate: 385, amount: 3850000 }] },
     }, include: { items: true }
   });
   const item = order.items[0];
-  const po = await prisma.productionOrder.create({ data: { productionNo: 'PO-2026-000001', salesOrderId: order.id, salesOrderItemId: item.id, plannedQtyKg: 10000, requiredYarnKg: 10800, expectedKnittingLossPct: 2, expectedDyeingLossPct: 3, priority: 'HIGH', status: 'RUNNING', startDate: new Date('2026-08-24T00:00:00+05:30'), dueDate: new Date('2026-09-03T00:00:00+05:30') } });
+  const po = await prisma.productionOrder.create({ data: { productionNo: 'PO-2026-000001', salesOrderId: order.id, salesOrderItemId: item.id, plannedQtyKg: 10000, requiredYarnKg: 10800, expectedKnittingLossPct: 2, expectedDyeingLossPct: 3, priority: 'HIGH', status: 'COMPLETED', startDate: new Date('2026-08-24T00:00:00+05:30'), dueDate: new Date('2026-09-03T00:00:00+05:30') } });
 
   const yarnEntry = await prisma.yarnProductionEntry.create({ data: { entryNo: 'YN-2026-000001', productionOrderId: po.id, processName: 'Spinning + Auto Coner', lotNo: 'YL-30S-0826-01', yarnCount: '30s', machineCode: 'SP-01', shift: 'A', workerId: manager.id, inputKg: 11200, outputKg: 10800, wasteKg: 400, balanceKg: 0, approved: true } });
   await prisma.yarnStockLot.create({ data: { lotNo: 'YL-30S-0826-01', yarnType: 'Combed Cotton', yarnCount: '30s', color: 'Natural', coneCount: 2160, netWeightKg: 10800, warehouseCode: yarnWh.code } });
@@ -118,8 +120,8 @@ async function main() {
   for (const r of [rollA, rollB]) await prisma.stockTransaction.create({ data: { category: 'FINISHED_FABRIC', txnType: 'QC_APPROVED', itemCode: 'FIN:Single Jersey:Navy Blue', itemName: 'Single Jersey Navy Blue', lotNo: r.rollNo, warehouseId: fgWh.id, quantityIn: r.netWeightKg, referenceType: 'QUALITY_INSPECTION', referenceId: qc.id, productionOrderId: po.id, createdById: manager.id } });
   await prisma.wasteEntry.create({ data: { productionOrderId: po.id, process: 'Final QC', quantityKg: 20, reason: 'QC rejection', workerName: manager.name, approvedBy: manager.name } });
 
-  const pack = await prisma.packingList.create({ data: { packingNo: 'PK-2026-000001', salesOrderId: order.id, packingType: 'Roll / Poly Pack', netWeightKg: 8000, grossWeightKg: 8032, items: { create: [{ rollId: rollA.id, weightKg: 8000 }] } } });
-  const invoice = await prisma.invoice.create({ data: { invoiceNo: 'INV-2026-000001', customerId: customer.id, salesOrderId: order.id, taxableValue: 3080000, gstAmount: 369600, totalAmount: 3449600, dueDate: new Date('2026-09-28T00:00:00+05:30') } });
+  const pack = await prisma.packingList.create({ data: { packingNo: 'PK-2026-000001', salesOrderId: order.id, packingType: 'Roll / Poly Pack', netWeightKg: 8000, grossWeightKg: 8032, status: 'DISPATCHED', items: { create: [{ rollId: rollA.id, weightKg: 8000 }] } } });
+  const invoice = await prisma.invoice.create({ data: { invoiceNo: 'INV-2026-000001', customerId: customer.id, salesOrderId: order.id, taxableValue: 3080000, gstAmount: 369600, totalAmount: 3449600, dueDate: new Date('2026-09-28T00:00:00+05:30'), status: 'PARTIALLY_PAID' } });
   const dispatch = await prisma.dispatch.create({ data: { dispatchNo: 'DSP-2026-000001', salesOrderId: order.id, packingListId: pack.id, invoiceId: invoice.id, dispatchDate: new Date('2026-08-28T14:00:00+05:30'), vehicle: 'TN 39 AB 2345', driver: 'Murugan', transporter: 'Kongu Transport', lrNumber: 'LR-48211', totalWeightKg: 8000, status: 'DELIVERED' } });
   await prisma.stockTransaction.create({ data: { category: 'FINISHED_FABRIC', txnType: 'DISPATCH_OUT', itemCode: 'FIN:Single Jersey:Navy Blue', itemName: 'Single Jersey Navy Blue', lotNo: rollA.rollNo, warehouseId: fgWh.id, quantityOut: 8000, referenceType: 'DISPATCH', referenceId: dispatch.id, productionOrderId: po.id, createdById: manager.id } });
   await prisma.delivery.create({ data: { deliveryNo: 'DLV-2026-000001', dispatchId: dispatch.id, receivedKg: 8000, shortageKg: 0, damagedKg: 0, returnedKg: 0, deliveryDate: new Date('2026-08-29T09:30:00+05:30'), notes: 'Customer received material' } });

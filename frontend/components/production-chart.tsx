@@ -1,52 +1,104 @@
 "use client";
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-const data = [
-  { day: "Mon", Yarn: 5200, Knitting: 4800, Dyeing: 4200 },
-  { day: "Tue", Yarn: 5800, Knitting: 5200, Dyeing: 4600 },
-  { day: "Wed", Yarn: 5500, Knitting: 5100, Dyeing: 4500 },
-  { day: "Thu", Yarn: 6200, Knitting: 5800, Dyeing: 4900 },
-  { day: "Fri", Yarn: 6800, Knitting: 6100, Dyeing: 5300 },
-  { day: "Sat", Yarn: 6400, Knitting: 5900, Dyeing: 5100 },
-  { day: "Sun", Yarn: 7100, Knitting: 6500, Dyeing: 5700 },
-];
-export function ProductionChart() {
+
+type TrendPoint = {
+  date: string;
+  yarnKg: number;
+  knittingKg: number;
+  dyeingKg: number;
+};
+
+const shortDate = (value: string) =>
+  new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric" }).format(
+    new Date(`${value}T00:00:00`),
+  );
+
+const tooltipKg = (value: number | string | undefined) =>
+  `${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 1 })} kg`;
+
+export function ProductionChart({ data }: { data: TrendPoint[] }) {
   return (
-    <div className="h-72">
+    <div className="h-[290px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="day" fontSize={11} />
-          <YAxis fontSize={11} />
-          <Tooltip />
-          <Legend />
-          <Line
-            type="monotone"
-            dataKey="Yarn"
-            stroke="#143b32"
-            strokeWidth={2}
+        <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+          <defs>
+            <linearGradient id="yarnGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#236b59" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="#236b59" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="knitGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#d3a64c" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="#d3a64c" stopOpacity={0} />
+            </linearGradient>
+            <linearGradient id="dyeGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#4f7cac" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="#4f7cac" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke="#e8eeeb" strokeDasharray="4 5" vertical={false} />
+          <XAxis
+            dataKey="date"
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={shortDate}
+            tick={{ fill: "#7a8882", fontSize: 11 }}
+            dy={8}
           />
-          <Line
+          <YAxis
+            axisLine={false}
+            tickLine={false}
+            tick={{ fill: "#7a8882", fontSize: 11 }}
+            tickFormatter={(value) => `${Number(value) / 1000}k`}
+          />
+          <Tooltip
+            formatter={(value, name) => [tooltipKg(value as number), name]}
+            labelFormatter={(label) =>
+              new Intl.DateTimeFormat("en-IN", {
+                weekday: "long",
+                day: "numeric",
+                month: "short",
+              }).format(new Date(`${label}T00:00:00`))
+            }
+            contentStyle={{
+              border: "1px solid #dfe8e4",
+              borderRadius: 14,
+              boxShadow: "0 16px 36px -20px rgba(20,59,50,.55)",
+              fontSize: 12,
+            }}
+          />
+          <Area
             type="monotone"
-            dataKey="Knitting"
+            dataKey="yarnKg"
+            name="Yarn"
+            stroke="#236b59"
+            fill="url(#yarnGradient)"
+            strokeWidth={2.25}
+          />
+          <Area
+            type="monotone"
+            dataKey="knittingKg"
+            name="Knitting"
             stroke="#d3a64c"
-            strokeWidth={2}
+            fill="url(#knitGradient)"
+            strokeWidth={2.25}
           />
-          <Line
+          <Area
             type="monotone"
-            dataKey="Dyeing"
-            stroke="#3b82f6"
-            strokeWidth={2}
+            dataKey="dyeingKg"
+            name="Dyeing"
+            stroke="#4f7cac"
+            fill="url(#dyeGradient)"
+            strokeWidth={2.25}
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

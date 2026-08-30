@@ -13,6 +13,7 @@
 ## Textile workflow
 - Customers and suppliers
 - Sales orders and production orders
+- Controlled order lifecycle: Draft → Confirmed → Planning → In Production → Ready → Dispatched → Delivered → Closed
 - Yarn production entries and approvals
 - Yarn stock ledger
 - Knitting job yarn issue
@@ -27,15 +28,18 @@
 - Final QC
 - Finished-fabric rolls
 - Packing
-- Dispatch
+- Duplicate/cross-order packing prevention
+- Invoice-linked dispatch and in-transit tracking
 - Delivery / POD field
+- Partial delivery and order-status synchronization
 - Order traceability and balance summary
 
 ## Inventory / Procurement
 - Immutable stock transactions
 - Stock availability checks before issue
-- Purchase orders
-- Material inward to stock ledger
+- Multi-line purchase orders with supplier, delivery date, value, and controlled statuses
+- Partial/full goods receipts (GRN) with warehouse, category, lot, and line-level balances
+- Over-receipt prevention, receipt audit trail, and material inward to the stock ledger
 - Warehouse balances
 - Wastage records
 
@@ -46,6 +50,7 @@
 - Notifications
 - User creation
 - Company/system settings
+- Invoice issue, overdue/partial/paid states, payment validation and automatic order closure
 - Finance summary, expenses, customer payments
 - Audit page/API
 
@@ -67,14 +72,14 @@
 - Cron sample
 
 ## Validation performed in this environment
-- TypeScript parser pass for frontend and backend: no syntax-level TS1xxx errors
-- JSON configuration validity check
-- Shell script syntax check
-- PM2 config load check
-- Zero-byte file check
 
-## Validation not completed in this environment
-Dependency installation / Prisma CLI download exceeded the execution window. Run the commands below after extraction:
+- Prisma schema validation and client generation
+- Four PostgreSQL migrations applied successfully
+- Backend NestJS production build
+- Frontend Next.js production build (24 routes)
+- Jest: 11 lifecycle and balance tests passed
+
+Run the same verification after deployment configuration changes:
 
 ```bash
 cd backend

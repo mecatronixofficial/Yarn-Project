@@ -335,8 +335,11 @@ Frontend:
 ```bash
 cd frontend
 npm ci
+export BACKEND_URL=https://api.example.com
 npm run build
 ```
+
+For a Vercel demo without a custom domain, set `BACKEND_URL` to the backend origin and `NEXT_PUBLIC_API_URL=/api/v1`. The Next.js rewrite proxies browser API calls through the Vercel hostname, so the existing same-site authentication cookies work without exposing the backend hostname to the client.
 
 # Ubuntu / PM2 / Nginx
 

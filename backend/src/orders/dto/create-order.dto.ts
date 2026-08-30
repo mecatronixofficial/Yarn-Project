@@ -1,4 +1,51 @@
-import { Type } from 'class-transformer'; import { IsArray, IsDateString, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
-class OrderItemDto { @IsString() fabricType!:string; @IsString() yarnType!:string; @IsString() yarnCount!:string; @IsString() color!:string; @IsOptional() @IsNumber() gsm?:number; @IsOptional() @IsString() diameter?:string; @IsOptional() @IsString() width?:string; @IsNumber() quantityKg!:number; @IsOptional() @IsNumber() rate?:number; }
-export class CreateOrderDto { @IsString() customerId!:string; @IsOptional() @IsString() poNumber?:string; @IsOptional() @IsDateString() expectedDelivery?:string; @IsOptional() @IsString() notes?:string; @IsArray() @ValidateNested({each:true}) @Type(()=>OrderItemDto) items!:OrderItemDto[]; }
-export class CreateProductionOrderDto { @IsString() salesOrderItemId!:string; @IsNumber() plannedQtyKg!:number; @IsNumber() requiredYarnKg!:number; @IsOptional() @IsNumber() expectedKnittingLossPct?:number; @IsOptional() @IsNumber() expectedDyeingLossPct?:number; @IsOptional() @IsString() priority?:string; @IsOptional() @IsDateString() startDate?:string; @IsOptional() @IsDateString() dueDate?:string; }
+import { Type } from 'class-transformer';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsDateString,
+  IsNumber,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
+
+export class OrderItemDto {
+  @IsString() fabricType!: string;
+  @IsString() yarnType!: string;
+  @IsString() yarnCount!: string;
+  @IsString() color!: string;
+  @IsOptional() @IsNumber() gsm?: number;
+  @IsOptional() @IsString() diameter?: string;
+  @IsOptional() @IsString() width?: string;
+  @IsNumber() quantityKg!: number;
+  @IsOptional() @IsNumber() rate?: number;
+}
+
+export class CreateOrderDto {
+  @IsString() customerId!: string;
+  @IsOptional() @IsString() poNumber?: string;
+  @IsOptional() @IsDateString() expectedDelivery?: string;
+  @IsOptional() @IsString() notes?: string;
+  @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => OrderItemDto)
+  items!: OrderItemDto[];
+}
+
+export class UpdateOrderDto {
+  @IsOptional() @IsString() customerId?: string;
+  @IsOptional() @IsString() poNumber?: string | null;
+  @IsOptional() @IsDateString() expectedDelivery?: string | null;
+  @IsOptional() @IsString() notes?: string | null;
+  @IsOptional() @IsArray() @ArrayMinSize(1) @ValidateNested({ each: true }) @Type(() => OrderItemDto)
+  items?: OrderItemDto[];
+}
+
+export class CreateProductionOrderDto {
+  @IsString() salesOrderItemId!: string;
+  @IsNumber() plannedQtyKg!: number;
+  @IsNumber() requiredYarnKg!: number;
+  @IsOptional() @IsNumber() expectedKnittingLossPct?: number;
+  @IsOptional() @IsNumber() expectedDyeingLossPct?: number;
+  @IsOptional() @IsString() priority?: string;
+  @IsOptional() @IsDateString() startDate?: string;
+  @IsOptional() @IsDateString() dueDate?: string;
+}
