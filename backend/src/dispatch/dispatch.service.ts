@@ -5,6 +5,7 @@ import { OrderLifecycleService } from '../orders/order-lifecycle.service';
 import { documentNo } from '../common/numbering';
 import { AuthUser } from '../common/auth-user';
 import { CreateDeliveryDto, CreateDispatchDto, CreatePackingDto } from './dto/dispatch.dto';
+import { MANAGEMENT_ROLES, notifyRoles } from '../notifications/notify.util';
 
 @Injectable()
 export class DispatchService {
@@ -69,7 +70,7 @@ export class DispatchService {
     if (rolls.some((roll) => roll.packingItems.length > 0)) throw new BadRequestException('One or more rolls are already packed');
 
     const netWeightKg = rolls.reduce((sum, roll) => sum + Number(roll.netWeightKg), 0);
-    return this.prisma.packingList.create({
+    const packing = await this.prisma.packingList.create({
       data: {
         packingNo: documentNo('PK'),
         salesOrderId: dto.salesOrderId,
@@ -81,6 +82,14 @@ export class DispatchService {
       },
       include: { items: { include: { roll: true } } },
     });
+    await notifyRoles(this.prisma, MANAGEMENT_ROLES, {
+      title: 'Packing list created',
+      message: `${packing.packingNo} • ${order.orderNo} • ${netWeightKg.toFixed(2)} KG packed`,
+      type: 'SYSTEM',
+      referenceType: 'PackingList',
+      referenceId: packing.id,
+    });
+    return packing;
   }
 
   async dispatch(dto: CreateDispatchDto, user: AuthUser) {
@@ -129,6 +138,13 @@ export class DispatchService {
 
       await tx.packingList.update({ where: { id: packing.id }, data: { status: 'DISPATCHED' } });
       await this.lifecycle.syncOrder(dto.salesOrderId, tx);
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Order dispatched',
+        message: `${dispatch.dispatchNo} • ${Number(dispatch.totalWeightKg).toFixed(2)} KG dispatched`,
+        type: 'SYSTEM',
+        referenceType: 'Dispatch',
+        referenceId: dispatch.id,
+      });
       return dispatch;
     });
   }
@@ -137,7 +153,15 @@ export class DispatchService {
     const dispatch = await this.prisma.dispatch.findUnique({ where: { id: dispatchId } });
     if (!dispatch) throw new NotFoundException('Dispatch not found');
     if (dispatch.status !== 'DISPATCHED') throw new BadRequestException('Only dispatched loads can move to in transit');
-    return this.prisma.dispatch.update({ where: { id: dispatchId }, data: { status: 'IN_TRANSIT' } });
+    const updated = await this.prisma.dispatch.update({ where: { id: dispatchId }, data: { status: 'IN_TRANSIT' } });
+    await notifyRoles(this.prisma, MANAGEMENT_ROLES, {
+      title: 'Shipment in transit',
+      message: `${dispatch.dispatchNo} is now in transit`,
+      type: 'SYSTEM',
+      referenceType: 'Dispatch',
+      referenceId: dispatchId,
+    });
+    return updated;
   }
 
   async deliver(dispatchId: string, dto: CreateDeliveryDto, user: AuthUser) {
@@ -163,6 +187,15 @@ export class DispatchService {
       await this.lifecycle.syncOrder(dispatch.salesOrderId, tx);
       await tx.auditLog.create({
         data: { actorId: user.id, action: 'DELIVERY_RECORDED', module: 'delivery', entity: 'Delivery', entityId: delivery.id, newValue: { receivedKg: dto.receivedKg, dispatchNo: dispatch.dispatchNo } },
+      });
+      const hasIssue = dto.shortageKg > 0 || dto.damagedKg > 0;
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: hasIssue ? 'Delivery recorded with shortage/damage' : 'Delivery recorded',
+        message: `${dispatch.dispatchNo} • received ${dto.receivedKg} KG${hasIssue ? ` • shortage ${dto.shortageKg} / damaged ${dto.damagedKg} KG` : ''}`,
+        type: hasIssue ? 'DELIVERY_DELAYED' : 'SYSTEM',
+        priority: hasIssue ? 'HIGH' : 'NORMAL',
+        referenceType: 'Delivery',
+        referenceId: delivery.id,
       });
       return delivery;
     });

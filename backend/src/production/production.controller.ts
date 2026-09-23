@@ -36,6 +36,12 @@ export class ProductionController {
     return this.service.fabricFlows();
   }
 
+  @Get('fabric-flows/directory')
+  @Roles(Role.SUPERADMIN, Role.MANAGER)
+  fabricFlowDirectory() {
+    return this.service.fabricFlowDirectory();
+  }
+
   @Post('fabric-flows')
   @Roles(Role.SUPERADMIN, Role.MANAGER)
   createFabricFlow(@Body() dto: CreateFabricFlowDto) {

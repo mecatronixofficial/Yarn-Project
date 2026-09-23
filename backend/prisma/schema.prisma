@@ -107,6 +107,7 @@ enum NotificationType {
   DELIVERY_DELAYED
   PAYMENT_DUE
   ORDER_DUE
+  ORDER_READY
   ORDER_COMPLETED
   SYSTEM
 }
@@ -117,6 +118,11 @@ enum MachineStatus {
   MAINTENANCE
   BREAKDOWN
   DISABLED
+}
+
+enum MaintenanceType {
+  PREVENTIVE
+  BREAKDOWN
 }
 
 enum DispatchStatus {
@@ -820,17 +826,18 @@ model AuditLog {
 }
 
 model MaintenanceRecord {
-  id            String   @id @default(uuid())
+  id            String          @id @default(uuid())
   machineId     String
-  machine       Machine  @relation(fields: [machineId], references: [id])
+  machine       Machine         @relation(fields: [machineId], references: [id])
+  type          MaintenanceType @default(PREVENTIVE)
   complaint     String
   technician    String?
   spareParts    String?
-  cost          Decimal? @db.Decimal(14, 2)
+  cost          Decimal?        @db.Decimal(14, 2)
   startedAt     DateTime
   endedAt       DateTime?
   resolution    String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime        @default(now())
 }
 
 model SystemSetting {
@@ -862,6 +869,10 @@ model FabricProductionFlow {
   knittingPiNo             String?
   knittingPartyDetails     String?
   knittingMillDetails      String?
+  knittingYarnStock        String?
+  knittingFabricStock      String?
+  knittingGg               String?
+  knittingLl               String?
   yarnReceivedKg           Decimal?         @db.Decimal(14, 3)
   dailyProductivityKg      Decimal?         @db.Decimal(14, 3)
   knittingDeliveryKg       Decimal?         @db.Decimal(14, 3)
@@ -873,6 +884,7 @@ model FabricProductionFlow {
   dyeingPartyDetails       String?
   dyeingMillDetails        String?
   fabricReceivedKg         Decimal?         @db.Decimal(14, 3)
+  dyeingGreyWeightKg       Decimal?         @db.Decimal(14, 3)
   color                    String?
   dyeingCount              String?
   gg                       String?
@@ -883,7 +895,9 @@ model FabricProductionFlow {
   compactingDeliveryKg     Decimal?         @db.Decimal(14, 3)
 
   compactingDate           DateTime?
+  compactingInwardNo       String?
   compactingReceivedKg     Decimal?         @db.Decimal(14, 3)
+  compactingOutwardNo      String?
   officeDeliveryKg         Decimal?         @db.Decimal(14, 3)
   compactingExpense        Decimal          @default(0) @db.Decimal(14, 2)
 

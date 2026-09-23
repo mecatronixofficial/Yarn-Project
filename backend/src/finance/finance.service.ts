@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrderLifecycleService } from '../orders/order-lifecycle.service';
 import { documentNo } from '../common/numbering';
 import { CreateInvoiceDto, ExpenseDto, PaymentDto } from './dto/finance.dto';
+import { MANAGEMENT_ROLES, notifyRoles } from '../notifications/notify.util';
 
 @Injectable()
 export class FinanceService {
@@ -50,7 +51,7 @@ export class FinanceService {
     if (order.customerId !== dto.customerId) throw new BadRequestException('Customer does not match the sales order');
     if (['DRAFT', 'CANCELLED'].includes(order.status)) throw new BadRequestException('Confirm the order before issuing an invoice');
 
-    return this.prisma.invoice.create({
+    const invoice = await this.prisma.invoice.create({
       data: {
         invoiceNo: documentNo('INV'),
         customerId: dto.customerId,
@@ -63,6 +64,14 @@ export class FinanceService {
       },
       include: { customer: true, salesOrder: true, payments: true },
     });
+    await notifyRoles(this.prisma, MANAGEMENT_ROLES, {
+      title: 'Invoice issued',
+      message: `${invoice.invoiceNo} • ${invoice.customer.name} • ${Number(invoice.totalAmount).toFixed(2)}`,
+      type: 'SYSTEM',
+      referenceType: 'Invoice',
+      referenceId: invoice.id,
+    });
+    return invoice;
   }
 
   async pay(dto: PaymentDto) {
@@ -77,9 +86,16 @@ export class FinanceService {
         if (dto.amount > outstanding + 0.01) throw new BadRequestException(`Payment exceeds outstanding amount ${outstanding.toFixed(2)}`);
       }
 
-      const payment = await tx.customerPayment.create({ data: dto });
+      const payment = await tx.customerPayment.create({ data: dto, include: { customer: true } });
       let invoice = null;
       if (dto.invoiceId) invoice = await this.lifecycle.syncInvoice(dto.invoiceId, tx);
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Payment received',
+        message: `${payment.customer.name} • ${Number(payment.amount).toFixed(2)} via ${payment.mode}`,
+        type: 'SYSTEM',
+        referenceType: 'CustomerPayment',
+        referenceId: payment.id,
+      });
       return { payment, invoice };
     });
   }

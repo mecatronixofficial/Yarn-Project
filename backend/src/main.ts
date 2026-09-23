@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  app.enableShutdownHooks();
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT', 4000);
   const frontendUrl = config.get<string>('FRONTEND_URL', 'http://localhost:3000');
