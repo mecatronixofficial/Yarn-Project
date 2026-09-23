@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InvoiceStatus, JobStatus, OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { deriveOrderStatus } from '../common/order-lifecycle';
+import { MANAGEMENT_ROLES, notifyRoles } from '../notifications/notify.util';
 
 type DbClient = PrismaService | Prisma.TransactionClient;
 
@@ -45,6 +46,15 @@ export class OrderLifecycleService {
     );
     const nextStatus: JobStatus = finishingOutputKg > 0 && terminalQcKg >= finishingOutputKg - 0.01 ? 'COMPLETED' : 'RUNNING';
     await db.productionOrder.update({ where: { id: productionOrderId }, data: { status: nextStatus } });
+    if (nextStatus === 'COMPLETED' && productionOrder.status !== 'COMPLETED') {
+      await notifyRoles(db, MANAGEMENT_ROLES, {
+        title: 'Production order completed',
+        message: `${productionOrder.productionNo} finished production`,
+        type: 'JOB_COMPLETED',
+        referenceType: 'ProductionOrder',
+        referenceId: productionOrderId,
+      });
+    }
     return this.syncOrder(productionOrder.salesOrderId, db);
   }
 
@@ -61,6 +71,26 @@ export class OrderLifecycleService {
     else if (paid > 0) status = 'PARTIALLY_PAID';
 
     const updated = await db.invoice.update({ where: { id: invoiceId }, data: { status } });
+    if (status !== invoice.status) {
+      if (status === 'PAID') {
+        await notifyRoles(db, MANAGEMENT_ROLES, {
+          title: 'Invoice paid in full',
+          message: `${invoice.invoiceNo} is fully settled`,
+          type: 'SYSTEM',
+          referenceType: 'Invoice',
+          referenceId: invoiceId,
+        });
+      } else if (status === 'OVERDUE') {
+        await notifyRoles(db, MANAGEMENT_ROLES, {
+          title: 'Invoice overdue',
+          message: `${invoice.invoiceNo} has crossed its due date unpaid`,
+          type: 'PAYMENT_DUE',
+          priority: 'HIGH',
+          referenceType: 'Invoice',
+          referenceId: invoiceId,
+        });
+      }
+    }
     if (invoice.salesOrderId) await this.syncOrder(invoice.salesOrderId, db);
     return updated;
   }
@@ -102,6 +132,27 @@ export class OrderLifecycleService {
       productionStarted: order.productionOrders.some((po) => !['PLANNED', 'WAITING'].includes(po.status)),
       financiallySettled: invoicedPaid,
     });
+
+    if (status !== order.status) {
+      if (status === 'READY') {
+        await notifyRoles(db, MANAGEMENT_ROLES, {
+          title: 'Order ready for dispatch',
+          message: `${order.orderNo} is fully produced and ready to pack/dispatch`,
+          type: 'ORDER_READY',
+          priority: 'HIGH',
+          referenceType: 'SalesOrder',
+          referenceId: salesOrderId,
+        });
+      } else if (status === 'CLOSED') {
+        await notifyRoles(db, MANAGEMENT_ROLES, {
+          title: 'Order closed',
+          message: `${order.orderNo} is fully delivered and paid`,
+          type: 'ORDER_COMPLETED',
+          referenceType: 'SalesOrder',
+          referenceId: salesOrderId,
+        });
+      }
+    }
 
     return db.salesOrder.update({ where: { id: salesOrderId }, data: { status } });
   }

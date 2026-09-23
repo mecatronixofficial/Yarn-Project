@@ -22,7 +22,24 @@ const FINISHED_PRODUCTION_STATUSES = [
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async get() {
+  private inFlightRequests = new Map<string, ReturnType<DashboardService['load']>>();
+
+  get(userId: string) {
+    // A dashboard load performs several independent reads. Reuse the same work
+    // when the browser sends overlapping requests (for example in development
+    // Strict Mode) instead of consuming another set of pool connections.
+    // Keyed per user so one user's in-flight load is never handed to another.
+    let inFlight = this.inFlightRequests.get(userId);
+    if (!inFlight) {
+      inFlight = this.load(userId).finally(() => {
+        this.inFlightRequests.delete(userId);
+      });
+      this.inFlightRequests.set(userId, inFlight);
+    }
+    return inFlight;
+  }
+
+  private async load(userId: string) {
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -33,26 +50,14 @@ export class DashboardService {
     const dueSoonEnd = new Date(todayStart);
     dueSoonEnd.setDate(dueSoonEnd.getDate() + 7);
 
+    // Keep each batch below Prisma's connection limit. Starting every query in
+    // one Promise.all used to enqueue 19 reads against a 13-connection pool,
+    // causing unrelated requests to fail with P2024 while they waited.
     const [
       openOrders,
       activeProductionCount,
       productionOrders,
       unreadNotifications,
-      recentNotifications,
-      machines,
-      workers,
-      stock,
-      readyDispatch,
-      inTransitDispatch,
-      wasteToday,
-      yarnTrend,
-      knittingTrend,
-      dyeingTrend,
-      orderPipeline,
-      qualitySummary,
-      overdueOrders,
-      dueSoonOrders,
-      openMaintenance,
     ] = await Promise.all([
       this.prisma.salesOrder.count({
         where: { status: { in: [...ACTIVE_ORDER_STATUSES] } },
@@ -77,9 +82,17 @@ export class DashboardService {
           inspections: { select: { approvedKg: true } },
         },
       }),
-      this.prisma.notification.count({ where: { isRead: false } }),
+      this.prisma.notification.count({ where: { isRead: false, userId } }),
+    ]);
+
+    const [
+      recentNotifications,
+      machines,
+      workers,
+      stock,
+    ] = await Promise.all([
       this.prisma.notification.findMany({
-        where: { isRead: false },
+        where: { isRead: false, userId },
         take: 5,
         orderBy: { createdAt: 'desc' },
         select: {
@@ -99,6 +112,14 @@ export class DashboardService {
         by: ['category'],
         _sum: { quantityIn: true, quantityOut: true },
       }),
+    ]);
+
+    const [
+      readyDispatch,
+      inTransitDispatch,
+      wasteToday,
+      yarnTrend,
+    ] = await Promise.all([
       this.prisma.dispatch.aggregate({
         where: { status: 'READY' },
         _sum: { totalWeightKg: true },
@@ -117,6 +138,14 @@ export class DashboardService {
         where: { createdAt: { gte: trendStart } },
         select: { createdAt: true, outputKg: true },
       }),
+    ]);
+
+    const [
+      knittingTrend,
+      dyeingTrend,
+      orderPipeline,
+      qualitySummary,
+    ] = await Promise.all([
       this.prisma.knittingProductionEntry.findMany({
         where: { createdAt: { gte: trendStart } },
         select: { createdAt: true, outputKg: true },
@@ -131,6 +160,9 @@ export class DashboardService {
         _count: true,
         _sum: { approvedKg: true, rejectedKg: true, reworkKg: true },
       }),
+    ]);
+
+    const [overdueOrders, dueSoonOrders, openMaintenance] = await Promise.all([
       this.prisma.productionOrder.count({
         where: {
           dueDate: { lt: todayStart },

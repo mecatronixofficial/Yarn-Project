@@ -6,10 +6,12 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuthUser } from '../common/auth-user';
+import { PrismaService } from '../prisma/prisma.service';
+import { notifyUser } from '../notifications/notify.util';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private auth: AuthService, private config: ConfigService) {}
+  constructor(private auth: AuthService, private config: ConfigService, private prisma: PrismaService) {}
 
   private cookieOptions(maxAge: number, refresh = false) {
     const prod = this.config.get('NODE_ENV') === 'production';
@@ -27,6 +29,14 @@ export class AuthController {
     const user = await this.auth.validateCredentials(dto);
     const tokens = await this.auth.issueSession(user, req.headers['user-agent'], req.ip);
     this.setTokens(res, tokens.accessToken, tokens.refreshToken);
+    await notifyUser(this.prisma, user.id, {
+      title: 'New login',
+      message: `Signed in from ${req.ip || 'an unknown IP'}`,
+      type: 'SYSTEM',
+      priority: 'LOW',
+      referenceType: 'User',
+      referenceId: user.id,
+    });
     return { success: true, message: 'Login successful', data: { id: user.id, name: user.name, email: user.email, role: user.role } };
   }
 

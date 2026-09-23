@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { documentNo } from '../common/numbering';
 import { CreateOrderDto, CreateProductionOrderDto, UpdateOrderDto } from './dto/create-order.dto';
 import { OrderLifecycleService } from './order-lifecycle.service';
+import { MANAGEMENT_ROLES, notifyRoles } from '../notifications/notify.util';
 
 @Injectable()
 export class OrdersService {
@@ -60,6 +61,13 @@ export class OrdersService {
       });
       await tx.auditLog.create({
         data: { action: 'ORDER_CREATED', module: 'orders', entity: 'SalesOrder', entityId: order.id, newValue: { orderNo: order.orderNo, total } },
+      });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'New sales order created',
+        message: `${order.orderNo} • ${order.customer.name}`,
+        type: 'SYSTEM',
+        referenceType: 'SalesOrder',
+        referenceId: order.id,
       });
       return order;
     });
@@ -127,6 +135,13 @@ export class OrdersService {
       if (order.status !== 'DRAFT') throw new BadRequestException('Only draft orders can be confirmed');
       const updated = await tx.salesOrder.update({ where: { id }, data: { status: 'CONFIRMED' } });
       await tx.auditLog.create({ data: { action: 'ORDER_CONFIRMED', module: 'orders', entity: 'SalesOrder', entityId: id } });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Order confirmed',
+        message: `${updated.orderNo} confirmed and ready for production planning`,
+        type: 'SYSTEM',
+        referenceType: 'SalesOrder',
+        referenceId: id,
+      });
       return updated;
     });
   }
@@ -140,6 +155,14 @@ export class OrdersService {
       }
       const updated = await tx.salesOrder.update({ where: { id }, data: { status: 'CANCELLED' } });
       await tx.auditLog.create({ data: { action: 'ORDER_CANCELLED', module: 'orders', entity: 'SalesOrder', entityId: id } });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Order cancelled',
+        message: `${updated.orderNo} was cancelled`,
+        type: 'SYSTEM',
+        priority: 'HIGH',
+        referenceType: 'SalesOrder',
+        referenceId: id,
+      });
       return updated;
     });
   }

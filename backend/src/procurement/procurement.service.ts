@@ -5,6 +5,7 @@ import { documentNo } from '../common/numbering';
 import { InventoryService } from '../inventory/inventory.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseOrderDto, ReceivePurchaseOrderDto } from './dto/procurement.dto';
+import { MANAGEMENT_ROLES, notifyRoles } from '../notifications/notify.util';
 
 const purchaseOrderInclude = {
   supplier: true,
@@ -72,6 +73,13 @@ export class ProcurementService {
           newValue: { poNo: purchaseOrder.poNo, supplierId: supplier.id, itemCount: dto.items.length },
         },
       });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Purchase order created',
+        message: `${purchaseOrder.poNo} • ${supplier.name} • ${dto.items.length} item(s)`,
+        type: 'SYSTEM',
+        referenceType: 'PurchaseOrder',
+        referenceId: purchaseOrder.id,
+      }, user.id);
       return purchaseOrder;
     });
   }
@@ -153,6 +161,14 @@ export class ProcurementService {
           newValue: { receiptNo: receipt.receiptNo, purchaseOrderId: id, warehouseId: warehouse.id, status },
         },
       });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: fullyReceived ? 'Purchase order fully received' : 'Material partially received',
+        message: `${purchaseOrder.poNo} • ${receipt.receiptNo} • ${warehouse.name}`,
+        type: fullyReceived ? 'ORDER_READY' : 'SYSTEM',
+        priority: fullyReceived ? 'HIGH' : 'NORMAL',
+        referenceType: 'PurchaseReceipt',
+        referenceId: receipt.id,
+      }, user.id);
       return { success: true, message: 'Material received and stock ledger updated', receiptNo: receipt.receiptNo, status };
     });
   }
@@ -168,6 +184,14 @@ export class ProcurementService {
       await tx.auditLog.create({
         data: { actorId: user.id, action: 'PURCHASE_ORDER_CANCELLED', module: 'procurement', entity: 'PurchaseOrder', entityId: id },
       });
+      await notifyRoles(tx, MANAGEMENT_ROLES, {
+        title: 'Purchase order cancelled',
+        message: `${purchaseOrder.poNo} was cancelled`,
+        type: 'SYSTEM',
+        priority: 'HIGH',
+        referenceType: 'PurchaseOrder',
+        referenceId: id,
+      }, user.id);
       return updated;
     });
   }
