@@ -1,10 +1,12 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Factory, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { BRAND } from "@/lib/brand";
+import { toast } from "@/lib/toast-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -27,10 +29,11 @@ export default function Login() {
   const submit = async (v: Form) => {
     setError("");
     try {
-      const r = await api<{ data: { role: string } }>("/auth/login", {
+      const r = await api<{ data: { role: string; name: string } }>("/auth/login", {
         method: "POST",
         body: JSON.stringify(v),
       });
+      toast.success(`Welcome back, ${r.data.name}.`, "Signed in");
       router.replace(r.data.role === "WORKER" ? "/worker" : "/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
@@ -38,16 +41,14 @@ export default function Login() {
   };
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden bg-[#143b32] p-12 text-white lg:flex lg:flex-col lg:justify-between">
+      <div className="hidden bg-[#1b3c55] p-12 text-white lg:flex lg:flex-col lg:justify-between">
         <div className="flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#d3a64c] text-[#143b32]">
-            <Factory />
+          <div className="h-14 w-14 overflow-hidden rounded-2xl shadow-lg">
+            <img src={BRAND.logo} alt={BRAND.name} className="h-full w-full object-cover" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">YarnFlow ERP</h1>
-            <p className="text-sm text-white/55">
-              Manufacturing control system
-            </p>
+            <h1 className="text-xl font-bold">{BRAND.name}</h1>
+            <p className="text-sm text-white/55">{BRAND.tagline}</p>
           </div>
         </div>
         <div>
@@ -67,7 +68,9 @@ export default function Login() {
       </div>
       <div className="grid place-items-center p-5">
         <form
-          onSubmit={handleSubmit(submit)}
+          onSubmit={handleSubmit(submit, () =>
+            toast.warning("Enter a valid email and a password of at least 6 characters.", "Check sign-in details")
+          )}
           className="w-full max-w-md rounded-3xl border bg-white p-7 shadow-xl md:p-9"
         >
           <p className="text-xs font-bold uppercase tracking-[.25em] text-[#a77a24]">

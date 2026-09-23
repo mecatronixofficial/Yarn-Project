@@ -2,13 +2,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { kg, money } from "@/lib/utils";
 import { DataTable } from "@/components/data-table";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Loading } from "@/components/loading";
 type Order = {
   id: string;
@@ -26,11 +26,18 @@ type Order = {
 };
 export default function Orders() {
   const [rows, setRows] = useState<Order[] | null>(null);
+  const [filter, setFilter] = useState("");
   useEffect(() => {
     api<Order[]>("/orders").then(setRows);
   }, []);
   const cols = useMemo<ColumnDef<Order>[]>(
     () => [
+      {
+        header: "#",
+        id: "serial",
+        enableSorting: false,
+        cell: ({ row }) => row.index + 1,
+      },
       {
         header: "Order",
         accessorKey: "orderNo",
@@ -82,28 +89,38 @@ export default function Orders() {
   );
   if (!rows) return <Loading />;
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+    <div className="orders-list-page">
+      <div className="orders-list-header flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold">Sales Orders</h2>
           <p className="text-sm text-gray-500">
             Customer demand connected to production orders.
           </p>
         </div>
-        <Link href="/orders/new">
-          <Button>
-            <Plus size={16} />
-            New Order
-          </Button>
-        </Link>
-      </CardHeader>
-      <CardContent>
-        <DataTable
-          data={rows}
-          columns={cols}
-          searchPlaceholder="Search order or customer..."
-        />
-      </CardContent>
-    </Card>
+        <div className="flex items-center gap-3">
+          <div className="orders-search flex items-center gap-2">
+            <Search className="text-gray-400" size={17} />
+            <Input
+              placeholder="Search order or customer..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+          <Link href="/orders/new">
+            <Button>
+              <Plus size={16} />
+              New Order
+            </Button>
+          </Link>
+        </div>
+      </div>
+      <DataTable
+        data={rows}
+        columns={cols}
+        filter={filter}
+        onFilterChange={setFilter}
+        hideSearch
+      />
+    </div>
   );
 }

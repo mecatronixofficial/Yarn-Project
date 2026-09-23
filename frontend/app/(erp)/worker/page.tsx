@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Factory, PlusCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast-store";
 import { kg } from "@/lib/utils";
 import { useAuth } from "@/components/auth-provider";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -71,6 +72,12 @@ export default function Worker() {
     });
   const submit = async () => {
     setMessage("");
+    if (!entry.jobId || Number(entry.outputKg) <= 0) {
+      const validationMessage = "Select a job and enter an output quantity greater than zero.";
+      setMessage(validationMessage);
+      toast.warning(validationMessage, "Check entry");
+      return;
+    }
     try {
       if (entry.kind === "Knitting") {
         await api(`/production/knitting/jobs/${entry.jobId}/entries`, {
@@ -95,6 +102,10 @@ export default function Worker() {
       }
       setMessage(
         "Entry submitted. Manager approval is required before stock is posted.",
+      );
+      toast.success(
+        "Entry submitted. Manager approval is required before stock is posted.",
+        "Production entry submitted",
       );
       setEntry(blank);
       load();

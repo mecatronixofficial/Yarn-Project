@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
+import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { kg } from "@/lib/utils";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
+import { Input } from "@/components/ui/input";
 type B = {
   category: string;
   itemCode: string;
@@ -17,11 +18,18 @@ type B = {
 export default function Inventory() {
   const [cat, setCat] = useState("YARN");
   const [rows, setRows] = useState<B[]>([]);
+  const [filter, setFilter] = useState("");
   useEffect(() => {
     api<B[]>(`/inventory/balances?category=${cat}`).then(setRows);
   }, [cat]);
   const cols = useMemo<ColumnDef<B>[]>(
     () => [
+      {
+        header: "#",
+        id: "serial",
+        enableSorting: false,
+        cell: ({ row }) => row.index + 1,
+      },
       { header: "Item", accessorKey: "itemName" },
       { header: "Code", accessorKey: "itemCode" },
       { header: "Lot", accessorKey: "lotNo" },
@@ -43,14 +51,22 @@ export default function Inventory() {
     [],
   );
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold">Inventory Balance</h2>
-            <p className="text-sm text-gray-500">
-              Calculated from immutable stock transactions.
-            </p>
+    <div className="inventory-list-page">
+      <div className="inventory-list-header flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold">Inventory Balance</h2>
+          <p className="text-sm text-gray-500">
+            Calculated from immutable stock transactions.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="inventory-search flex items-center gap-2">
+            <Search className="text-gray-400" size={17} />
+            <Input
+              placeholder="Search item, code or lot..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
           </div>
           <div>
             <label className="erp-label">Stock Category</label>
@@ -67,10 +83,14 @@ export default function Inventory() {
             </select>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <DataTable columns={cols} data={rows} />
-      </CardContent>
-    </Card>
+      </div>
+      <DataTable
+        columns={cols}
+        data={rows}
+        filter={filter}
+        onFilterChange={setFilter}
+        hideSearch
+      />
+    </div>
   );
 }

@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast-store";
 import { cn, kg, money } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -186,8 +187,10 @@ export default function OrderDetail() {
     setNotice(null); setBusy(action);
     try {
       await api(`/orders/${id}/${action}`, { method: "POST" });
-      setNotice({ tone: "success", text: action === "confirm" ? "Order confirmed and ready for planning."
-        : action === "cancel" ? "Sales order cancelled." : "Sales order closed successfully." });
+      const successMessage = action === "confirm" ? "Order confirmed and ready for planning."
+        : action === "cancel" ? "Sales order cancelled." : "Sales order closed successfully.";
+      setNotice({ tone: "success", text: successMessage });
+      toast.success(successMessage);
       await load();
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Action failed." });
@@ -202,7 +205,11 @@ export default function OrderDetail() {
     else if (planned <= 0 || yarn <= 0) error = "Planned quantity and required yarn must be greater than zero.";
     else if (planned > remaining + 0.001) error = `Only ${kg(remaining)} remains unplanned for this item.`;
     else if (production.startDate && production.dueDate && production.dueDate < production.startDate) error = "Due date cannot be earlier than start date.";
-    if (error) { setNotice({ tone: "error", text: error }); return; }
+    if (error) {
+      setNotice({ tone: "error", text: error });
+      toast.warning(error, "Check production plan");
+      return;
+    }
     setNotice(null); setBusy("production");
     try {
       await api(`/orders/${id}/production-orders`, { method: "POST", body: JSON.stringify({
@@ -214,6 +221,7 @@ export default function OrderDetail() {
       ]);
       setOrder(orderData); setTrace(traceData.data); applyPlanningDefaults(orderData, production.salesOrderItemId);
       setNotice({ tone: "success", text: "Production order created successfully." });
+      toast.success("Production order created successfully.");
     } catch (error) {
       setNotice({ tone: "error", text: error instanceof Error ? error.message : "Unable to create production order." });
     } finally { setBusy(""); }
@@ -224,6 +232,7 @@ export default function OrderDetail() {
     setNotice(null); setBusy("delete");
     try {
       await api(`/orders/${id}`, { method: "DELETE" });
+      toast.success(`${order.orderNo} deleted.`);
       router.push("/orders");
       router.refresh();
     } catch (error) {
@@ -313,7 +322,7 @@ export default function OrderDetail() {
     </div>}
 
     {editing && order.status === "DRAFT" && <OrderEditForm order={order} onCancel={() => setEditing(false)} onSaved={async () => {
-      await load(); setEditing(false); setNotice({ tone: "success", text: "Sales order updated successfully." });
+      await load(); setEditing(false); setNotice({ tone: "success", text: "Sales order updated successfully." }); toast.success("Sales order updated successfully.");
     }} />}
 
     <section className="scroll-mt-36" id="overview">

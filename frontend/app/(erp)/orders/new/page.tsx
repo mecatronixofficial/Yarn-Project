@@ -5,9 +5,12 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useApiAction } from "@/lib/use-api-action";
+import { toast } from "@/lib/toast-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InlineMessage } from "@/components/ui/inline-message";
 const schema = z.object({
   customerId: z.string().min(1),
   poNumber: z.string().optional(),
@@ -27,6 +30,7 @@ type FormData = z.output<typeof schema>;
 export default function NewOrder() {
   const [customers, setCustomers] = useState<any[]>([]);
   const router = useRouter();
+  const { message, run } = useApiAction();
   useEffect(() => {
     api<any[]>("/masters/customers").then(setCustomers);
   }, []);
@@ -47,28 +51,31 @@ export default function NewOrder() {
     },
   });
   const submit = async (v: FormData) => {
-    const r = await api<any>("/orders", {
-      method: "POST",
-      body: JSON.stringify({
-        customerId: v.customerId,
-        poNumber: v.poNumber,
-        expectedDelivery: v.expectedDelivery || undefined,
-        items: [
-          {
-            fabricType: v.fabricType,
-            yarnType: v.yarnType,
-            yarnCount: v.yarnCount,
-            color: v.color,
-            gsm: v.gsm,
-            diameter: v.diameter,
-            width: v.width,
-            quantityKg: v.quantityKg,
-            rate: v.rate,
-          },
-        ],
-      }),
-    });
-    router.push(`/orders/${r.id}`);
+    let created: any = null;
+    const ok = await run(async () => {
+      created = await api<any>("/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          customerId: v.customerId,
+          poNumber: v.poNumber,
+          expectedDelivery: v.expectedDelivery || undefined,
+          items: [
+            {
+              fabricType: v.fabricType,
+              yarnType: v.yarnType,
+              yarnCount: v.yarnCount,
+              color: v.color,
+              gsm: v.gsm,
+              diameter: v.diameter,
+              width: v.width,
+              quantityKg: v.quantityKg,
+              rate: v.rate,
+            },
+          ],
+        }),
+      });
+    }, "Sales order created successfully.");
+    if (ok && created) router.push(`/orders/${created.id}`);
   };
   const field = (name: keyof FormInput, label: string, type = "text") => (
     <div>
@@ -88,9 +95,12 @@ export default function NewOrder() {
           items.
         </p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        <InlineMessage message={message} />
         <form
-          onSubmit={handleSubmit(submit)}
+          onSubmit={handleSubmit(submit, () =>
+            toast.warning("Complete the required order fields before saving.", "Check sales order")
+          )}
           className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
         >
           <div>

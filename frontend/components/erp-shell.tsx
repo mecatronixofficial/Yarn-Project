@@ -10,7 +10,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen">
       <Sidebar open={open} onClose={() => setOpen(false)} />
-      <div className="lg:pl-72">
+      <div className="lg:pl-64">
         <Topbar onMenu={() => setOpen(true)} />
         <main className="p-4 md:p-6">{children}</main>
       </div>

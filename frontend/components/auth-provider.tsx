@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast-store";
 import type { User } from "@/lib/types";
 import { Loading } from "./loading";
 type Ctx = {
@@ -24,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const refresh = async () => {
     try {
-      const r = await api<{ data: User }>("/auth/me");
+      const r = await api<{ data: User }>("/auth/me", { silent: true });
       setUser(r.data);
     } catch {
       setUser(null);
@@ -38,9 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const logout = async () => {
     try {
-      await api("/auth/logout", { method: "POST" });
+      await api("/auth/logout", { method: "POST", silent: true });
     } finally {
       setUser(null);
+      toast.info("You have been signed out.", "Signed out");
       router.replace("/login");
     }
   };
