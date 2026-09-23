@@ -24,12 +24,12 @@ import {
 import { api } from "@/lib/api";
 import { cn, kg } from "@/lib/utils";
 import type { DashboardData } from "@/lib/types";
-import { KpiCard } from "@/components/kpi-card";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/loading";
 import { ProductionChart } from "@/components/production-chart";
+import { QualityDonut } from "@/components/quality-donut";
 import { useAuth } from "@/components/auth-provider";
 
 const stageTone = (status: string): "success" | "danger" | "warning" | "info" =>
@@ -63,6 +63,39 @@ const greeting = () => {
   if (hour < 17) return "Good afternoon";
   return "Good evening";
 };
+
+function DashboardStatTile({
+  title,
+  value,
+  caption,
+  icon: Icon,
+  tone = "green",
+}: {
+  title: string;
+  value: string;
+  caption?: string;
+  icon: typeof AlertTriangle;
+  tone?: "green" | "gold" | "blue" | "rose";
+}) {
+  const tones = {
+    green: "bg-emerald-100 text-emerald-700",
+    gold: "bg-amber-100 text-amber-700",
+    blue: "bg-blue-100 text-blue-700",
+    rose: "bg-rose-100 text-rose-700",
+  };
+  return (
+    <div className="dashboard-stat-tile p-4">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{title}</p>
+          <p className="mt-2 truncate text-xl font-bold tracking-[-.03em] text-gray-800">{value}</p>
+          {caption && <p className="mt-1 truncate text-[10px] text-gray-400">{caption}</p>}
+        </div>
+        <div className={cn("dashboard-stat-icon h-10 w-10 shrink-0", tones[tone])}><Icon size={17} /></div>
+      </div>
+    </div>
+  );
+}
 
 function SectionTitle({
   eyebrow,
@@ -118,12 +151,10 @@ export default function Dashboard() {
     if (!data) return null;
     const machineTotal = Object.values(data.machines).reduce((sum, count) => sum + count, 0);
     const running = data.machines.RUNNING || 0;
-    const qualityTotal = data.quality.approvedKg + data.quality.rejectedKg + data.quality.reworkKg;
     return {
       machineTotal,
       running,
       utilization: machineTotal ? Math.round((running / machineTotal) * 100) : 0,
-      qualityYield: qualityTotal ? Math.round((data.quality.approvedKg / qualityTotal) * 1000) / 10 : 0,
       pipelineTotal: data.pipeline.reduce((sum, stage) => sum + stage.count, 0),
     };
   }, [data]);
@@ -150,24 +181,24 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-page mx-auto max-w-[1800px] space-y-6 pb-8">
-      <section className="dashboard-hero overflow-hidden rounded-[28px] p-5 text-white md:p-7">
-        <div className="relative z-10 flex flex-col justify-between gap-7 xl:flex-row xl:items-end">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.2em] text-white/55">
-              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-              Factory command centre
+      <section className="dashboard-hero overflow-hidden rounded-[20px] p-3.5 text-white md:p-4">
+        <div className="relative z-10 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+          <div className="flex items-center gap-3">
+            <div className="dashboard-hero__monogram"><Gauge size={19} /></div>
+            <div>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[.16em] text-white/55">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                Factory command centre
+              </div>
+              <h2 className="mt-1 text-xl font-black tracking-[-.03em] md:text-2xl">
+                {greeting()}, {user?.name.split(" ")[0]}
+              </h2>
             </div>
-            <h2 className="mt-4 text-2xl font-bold tracking-[-.035em] md:text-4xl">
-              {greeting()}, {user?.name.split(" ")[0]}
-            </h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-white/60">
-              A live view of orders, production output, factory capacity and fulfilment risk.
-            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[.07] px-4 py-3 backdrop-blur">
-              <p className="text-[9px] font-bold uppercase tracking-[.16em] text-white/40">Last updated</p>
-              <p className="mt-1 text-xs font-semibold text-white/85">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-xl border border-white/10 bg-white/[.06] px-3 py-2 backdrop-blur">
+              <p className="text-[8px] font-bold uppercase tracking-[.14em] text-white/40">Last updated</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-white/85">
                 {new Intl.DateTimeFormat("en-IN", {
                   day: "2-digit",
                   month: "short",
@@ -177,16 +208,17 @@ export default function Dashboard() {
               </p>
             </div>
             <Button
-              className="h-[54px] border border-white/15 bg-white/10 px-4 text-white hover:bg-white/15"
+              size="sm"
+              className="border border-white/15 bg-white/10 text-white hover:bg-white/15"
               onClick={() => void load(true)}
               disabled={refreshing}
             >
-              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
               Refresh data
             </Button>
           </div>
         </div>
-        <div className="relative z-10 mt-7 grid gap-3 border-t border-white/10 pt-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="dashboard-hero__meta relative z-10 mt-3 grid gap-2 border-t border-white/10 pt-3 sm:grid-cols-2 xl:grid-cols-4">
           {([
             ["Overdue jobs", k.overdueOrders, AlertTriangle, k.overdueOrders ? "text-rose-300" : "text-emerald-300"],
             ["Due next 7 days", k.dueSoonOrders, CalendarClock, "text-amber-200"],
@@ -195,11 +227,11 @@ export default function Dashboard() {
           ] as const).map(([label, value, Icon, tone]) => {
             const MetricIcon = Icon as typeof AlertTriangle;
             return (
-              <div key={String(label)} className="flex items-center gap-3 rounded-2xl bg-black/10 px-4 py-3">
-                <MetricIcon size={17} className={String(tone)} />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">{label}</p>
-                  <p className="mt-0.5 text-lg font-bold">{String(value || 0).padStart(2, "0")}</p>
+              <div key={String(label)}>
+                <div className="dashboard-hero-chip-icon"><MetricIcon size={16} className={String(tone)} /></div>
+                <div className="min-w-0">
+                  <p className="truncate text-[9px] font-bold uppercase tracking-wider text-white/40">{label}</p>
+                  <p className="mt-0.5 text-base font-bold">{String(value || 0).padStart(2, "0")}</p>
                 </div>
               </div>
             );
@@ -216,28 +248,28 @@ export default function Dashboard() {
 
       <section>
         <SectionTitle eyebrow="Core performance" title="Today at a glance" />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiCard
+        <div className="mt-3 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <DashboardStatTile
             title="Open orders"
             value={String(k.openOrders || 0)}
             caption={`${k.activeProduction || 0} production jobs active`}
             icon={ShoppingCart}
           />
-          <KpiCard
+          <DashboardStatTile
             title="Finished stock"
             value={kg(k.FINISHED_FABRIC)}
             caption="QC-approved inventory"
             icon={PackageCheck}
             tone="gold"
           />
-          <KpiCard
+          <DashboardStatTile
             title="Ready to dispatch"
             value={kg(k.readyDispatchKg)}
             caption={`${k.readyDispatches || 0} consignments waiting`}
             icon={Truck}
             tone="blue"
           />
-          <KpiCard
+          <DashboardStatTile
             title="Waste today"
             value={kg(k.wasteTodayKg)}
             caption="Across recorded processes"
@@ -267,7 +299,7 @@ export default function Dashboard() {
             <SectionTitle eyebrow="Order movement" title="Fulfilment pipeline" />
           </CardHeader>
           <CardContent>
-            <div className="mb-5 flex items-center justify-between overflow-hidden rounded-2xl bg-[#143b32] p-4 text-white">
+            <div className="mb-5 flex items-center justify-between overflow-hidden rounded-2xl bg-[#1b3c55] p-4 text-white">
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-[.18em] text-white/45">Orders in motion</p>
                 <div className="mt-1 flex items-end gap-2">
@@ -293,7 +325,7 @@ export default function Dashboard() {
                 return (
                   <div key={stage.key} className="group flex gap-3">
                     <div className="flex w-10 shrink-0 flex-col items-center">
-                      <div className={cn("relative z-10 grid h-10 w-10 place-items-center rounded-2xl ring-4 ring-white transition-transform group-hover:scale-105", meta.iconClass)}>
+                      <div className={cn("dashboard-stat-icon relative z-10 h-10 w-10 ring-4 ring-white transition-transform group-hover:scale-105", meta.iconClass)}>
                         <StageIcon size={17} />
                       </div>
                       {index < dashboard.pipeline.length - 1 && <div className="-my-1 min-h-4 flex-1 border-l-2 border-dashed border-gray-200" />}
@@ -307,7 +339,7 @@ export default function Dashboard() {
                         <p className="mt-1 truncate text-sm font-bold text-gray-800">{stage.label}</p>
                         <p className="mt-0.5 truncate text-[10px] text-gray-500">{meta.description}</p>
                       </div>
-                      <div className="ml-3 grid h-11 min-w-11 place-items-center rounded-xl bg-white px-2 text-lg font-bold text-[#143b32] shadow-sm">
+                      <div className="ml-3 grid h-11 min-w-11 place-items-center rounded-xl bg-white px-2 text-lg font-bold text-[#1b3c55] shadow-sm">
                         {stage.count}
                       </div>
                     </div>
@@ -336,8 +368,8 @@ export default function Dashboard() {
             ] as const).map(([label, value, Icon, tone]) => {
               const StockIcon = Icon as typeof Boxes;
               return (
-                <div key={String(label)} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-gray-50/70 p-3.5">
-                  <div className={cn("grid h-10 w-10 place-items-center rounded-xl", String(tone))}><StockIcon size={17} /></div>
+                <div key={String(label)} className="dashboard-stat-tile flex items-center gap-3 p-3.5">
+                  <div className={cn("dashboard-stat-icon h-10 w-10 shrink-0", String(tone))}><StockIcon size={17} /></div>
                   <div className="min-w-0">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</p>
                     <p className="mt-1 truncate text-base font-bold text-gray-800">{kg(Number(value))}</p>
@@ -353,11 +385,9 @@ export default function Dashboard() {
             <SectionTitle eyebrow="Factory health" title="Machines & workforce" action={<Link href="/masters/machines" className="text-xs font-bold text-[#266956]">Machines <ArrowRight className="ml-1 inline" size={13} /></Link>} />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-5 rounded-2xl bg-[#143b32] p-4 text-white">
-              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full" style={{ background: `conic-gradient(#d3a64c ${s.utilization * 3.6}deg, rgba(255,255,255,.1) 0deg)` }}>
-                <div className="grid h-16 w-16 place-items-center rounded-full bg-[#143b32] text-center">
-                  <span className="text-xl font-bold">{s.utilization}%</span>
-                </div>
+            <div className="flex items-center gap-5 rounded-2xl bg-[#1b3c55] p-4 text-white">
+              <div className="dashboard-ring h-20 w-20 shrink-0" style={{ background: `conic-gradient(#d3a64c ${s.utilization * 3.6}deg, rgba(255,255,255,.14) 0deg)` }}>
+                <span className="text-xl font-bold">{s.utilization}%</span>
               </div>
               <div>
                 <p className="text-xs text-white/50">Machine availability</p>
@@ -385,17 +415,22 @@ export default function Dashboard() {
             <SectionTitle eyebrow="Quality pulse" title="Inspection outcome" action={<Link href="/quality" className="text-xs font-bold text-[#266956]">Quality <ArrowRight className="ml-1 inline" size={13} /></Link>} />
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between rounded-2xl bg-emerald-50 p-4">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Recorded yield</p>
-                <p className="mt-1 text-3xl font-bold tracking-tight text-emerald-800">{s.qualityYield}%</p>
+            <div className="flex items-center gap-4">
+              <QualityDonut approvedKg={dashboard.quality.approvedKg} reworkKg={dashboard.quality.reworkKg} rejectedKg={dashboard.quality.rejectedKg} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="dashboard-stat-tile flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs font-bold text-emerald-800"><CheckCircle2 size={13} className="text-emerald-600" />Approved</span>
+                  <span className="text-xs font-bold text-emerald-900">{kg(dashboard.quality.approvedKg)}</span>
+                </div>
+                <div className="dashboard-stat-tile flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs font-bold text-amber-800"><CircleDot size={13} className="text-amber-600" />Rework</span>
+                  <span className="text-xs font-bold text-amber-900">{kg(dashboard.quality.reworkKg)}</span>
+                </div>
+                <div className="dashboard-stat-tile flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="flex items-center gap-2 text-xs font-bold text-rose-800"><AlertTriangle size={13} className="text-rose-600" />Rejected</span>
+                  <span className="text-xs font-bold text-rose-900">{kg(dashboard.quality.rejectedKg)}</span>
+                </div>
               </div>
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm"><CheckCircle2 size={22} /></div>
-            </div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl border border-gray-100 p-3"><p className="text-base font-bold text-emerald-700">{kg(dashboard.quality.approvedKg)}</p><p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">Approved</p></div>
-              <div className="rounded-xl border border-gray-100 p-3"><p className="text-base font-bold text-amber-700">{kg(dashboard.quality.reworkKg)}</p><p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">Rework</p></div>
-              <div className="rounded-xl border border-gray-100 p-3"><p className="text-base font-bold text-rose-700">{kg(dashboard.quality.rejectedKg)}</p><p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-gray-400">Rejected</p></div>
             </div>
           </CardContent>
         </Card>
@@ -445,7 +480,7 @@ export default function Dashboard() {
                           </td>
                           <td className="px-5 py-4">
                             <div className="flex items-center justify-between text-[11px]"><span className="text-gray-500">{kg(production.outputKg)} / {kg(production.qtyKg)}</span><strong>{production.progressPct}%</strong></div>
-                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#2f765f]" style={{ width: `${production.progressPct}%` }} /></div>
+                            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full bg-[#3c6e91]" style={{ width: `${production.progressPct}%` }} /></div>
                           </td>
                           <td className="px-5 py-4">
                             <p className={cn("font-semibold", overdue ? "text-rose-600" : "text-gray-700")}>{dueText}</p>
@@ -475,7 +510,7 @@ export default function Dashboard() {
               </div>
             ) : dashboard.alerts.map((alert) => (
               <div key={alert.id} className="flex gap-3 rounded-2xl border border-gray-100 bg-gray-50/60 p-3.5">
-                <div className={cn("mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl", alert.priority === "CRITICAL" || alert.priority === "HIGH" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700")}>
+                <div className={cn("dashboard-stat-icon mt-0.5 h-8 w-8 shrink-0", alert.priority === "CRITICAL" || alert.priority === "HIGH" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700")}>
                   {alert.priority === "CRITICAL" || alert.priority === "HIGH" ? <AlertTriangle size={15} /> : <CircleDot size={15} />}
                 </div>
                 <div className="min-w-0">
@@ -486,13 +521,13 @@ export default function Dashboard() {
               </div>
             ))}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              <Link href="/dispatch" className="rounded-xl bg-blue-50 p-3 text-blue-800 transition hover:bg-blue-100">
-                <Truck size={16} />
+              <Link href="/dispatch" className="dashboard-stat-tile p-3 text-blue-800">
+                <div className="dashboard-stat-icon h-8 w-8 bg-blue-100 text-blue-700"><Truck size={15} /></div>
                 <p className="mt-2 text-lg font-bold">{k.inTransitDispatches || 0}</p>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-blue-600">In transit</p>
               </Link>
-              <Link href="/maintenance" className="rounded-xl bg-amber-50 p-3 text-amber-800 transition hover:bg-amber-100">
-                <Wrench size={16} />
+              <Link href="/maintenance" className="dashboard-stat-tile p-3 text-amber-800">
+                <div className="dashboard-stat-icon h-8 w-8 bg-amber-100 text-amber-700"><Wrench size={15} /></div>
                 <p className="mt-2 text-lg font-bold">{k.openMaintenance || 0}</p>
                 <p className="text-[9px] font-bold uppercase tracking-wider text-amber-600">Open repairs</p>
               </Link>

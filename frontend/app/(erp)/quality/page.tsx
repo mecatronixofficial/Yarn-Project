@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckCircle2, Droplets, Layers2, Ruler, ScanLine, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast-store";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ export default function Quality() {
     try {
       await request();
       setMessage(successMessage);
+      toast.success(successMessage);
       await load();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Action failed");
@@ -47,30 +50,62 @@ export default function Quality() {
     </option>
   ));
 
+  const stats = [
+    { label: "Yarn entries", value: approvals.yarn.length, icon: Layers2 },
+    { label: "Knitting entries", value: approvals.knitting.length, icon: ScanLine },
+    { label: "Dyeing entries", value: approvals.dyeing.length, icon: Droplets },
+  ];
+
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold">Finishing & Quality Control</h2>
-        <p className="text-sm text-gray-500">Approved dyeing output moves through finishing and quantity-balanced final QC.</p>
+    <div className="quality-page space-y-6">
+      <div className="quality-hero relative overflow-hidden rounded-3xl p-6 md:p-8">
+        <div className="relative z-10 flex flex-wrap items-center gap-4">
+          <div className="quality-hero__monogram">
+            <ShieldCheck size={24} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white md:text-2xl">Finishing & Quality Control</h2>
+            <p className="mt-1 max-w-xl text-sm text-white/65">
+              Approved dyeing output moves through finishing and quantity-balanced final QC.
+            </p>
+          </div>
+        </div>
       </div>
-      {message && <div className="rounded-xl bg-blue-50 p-3 text-sm text-blue-700">{message}</div>}
+
+      {message && (
+        <div className="quality-message flex items-center gap-2 rounded-xl p-3 text-sm">
+          <CheckCircle2 size={16} />
+          {message}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
-        {[
-          ["Yarn entries", approvals.yarn.length],
-          ["Knitting entries", approvals.knitting.length],
-          ["Dyeing entries", approvals.dyeing.length],
-        ].map(([label, value]) => (
-          <div key={String(label)} className="rounded-xl bg-amber-50 p-5">
-            <p className="text-xs text-amber-700">{label}</p>
-            <p className="mt-1 text-3xl font-bold">{value}</p>
+        {stats.map(({ label, value, icon: Icon }) => (
+          <div key={label} className="quality-stat-tile">
+            <div className="quality-stat-icon">
+              <Icon size={18} />
+            </div>
+            <div>
+              <p className="quality-stat-label">{label}</p>
+              <p className="quality-stat-value">{value}</p>
+            </div>
           </div>
         ))}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Card>
-          <CardHeader><h3 className="font-bold">Record Finishing</h3></CardHeader>
+        <Card className="quality-form-card">
+          <CardHeader>
+            <div className="quality-section-heading">
+              <span className="quality-section-icon quality-section-icon--amber">
+                <Ruler size={16} />
+              </span>
+              <div>
+                <h3 className="font-bold">Record Finishing</h3>
+                <p className="text-xs text-gray-500">Stenter, compacting and width / GSM control</p>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="space-y-3">
             <select className="erp-input" value={finishing.productionOrderId} onChange={(event) => setFinishing({ ...finishing, productionOrderId: event.target.value })}>
               <option value="">Select production order</option>{productionOptions}
@@ -84,7 +119,7 @@ export default function Quality() {
               <Input type="number" value={finishing.gsmAfter} onChange={(event) => setFinishing({ ...finishing, gsmAfter: event.target.value })} placeholder="GSM after" />
               <Input value={finishing.widthAfter} onChange={(event) => setFinishing({ ...finishing, widthAfter: event.target.value })} placeholder="Final width" />
             </div>
-            <Button className="w-full" onClick={() => submit(
+            <Button className="quality-submit-btn w-full" onClick={() => submit(
               () => api("/production/finishing", { method: "POST", body: JSON.stringify({
                 ...finishing, inputKg: Number(finishing.inputKg), outputKg: Number(finishing.outputKg), lossKg: Number(finishing.lossKg),
                 gsmBefore: finishing.gsmBefore ? Number(finishing.gsmBefore) : undefined,
@@ -95,8 +130,18 @@ export default function Quality() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader><h3 className="font-bold">Final QC & Finished Stock</h3></CardHeader>
+        <Card className="quality-form-card">
+          <CardHeader>
+            <div className="quality-section-heading">
+              <span className="quality-section-icon quality-section-icon--teal">
+                <ShieldCheck size={16} />
+              </span>
+              <div>
+                <h3 className="font-bold">Final QC & Finished Stock</h3>
+                <p className="text-xs text-gray-500">Approve, reject or rework — balanced against input KG</p>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent className="space-y-3">
             <select className="erp-input" value={qc.productionOrderId} onChange={(event) => setQc({ ...qc, productionOrderId: event.target.value })}>
               <option value="">Select production order</option>{productionOptions}
@@ -109,7 +154,7 @@ export default function Quality() {
               <Input value={qc.rollNo} onChange={(event) => setQc({ ...qc, rollNo: event.target.value })} placeholder="Finished roll no (optional)" />
               <Input value={qc.notes} onChange={(event) => setQc({ ...qc, notes: event.target.value })} placeholder="QC notes" />
             </div>
-            <Button className="w-full" onClick={() => submit(
+            <Button className="quality-submit-btn w-full" onClick={() => submit(
               () => api("/production/qc/final", { method: "POST", body: JSON.stringify({
                 ...qc, inputKg: Number(qc.inputKg), approvedKg: Number(qc.approvedKg),
                 rejectedKg: Number(qc.rejectedKg), reworkKg: Number(qc.reworkKg),

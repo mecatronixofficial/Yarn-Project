@@ -6,7 +6,6 @@ import {
   Bell,
   Boxes,
   ClipboardCheck,
-  Droplets,
   Factory,
   FileText,
   Gauge,
@@ -22,6 +21,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/types";
+import { BRAND } from "@/lib/brand";
 import { useAuth } from "./auth-provider";
 
 type NavItem = {
@@ -157,41 +157,44 @@ export function Sidebar({
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-[#143b32] text-white transition-transform lg:translate-x-0",
+          "app-sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col text-white transition-transform lg:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-20 items-center gap-3 border-b border-white/10 px-5">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-[#d3a64c] text-[#143b32]">
-            <Droplets size={22} />
-          </div>
-          <div>
-            <p className="font-bold">YarnFlow ERP</p>
-            <p className="text-xs text-white/50">Textile Manufacturing</p>
+        <div className="app-sidebar-brand flex h-16 items-center gap-2.5 px-4">
+          <span className="app-sidebar-logo">
+            <img src={BRAND.logo} alt={BRAND.name} />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-bold leading-tight">{BRAND.name}</p>
+            <p className="truncate text-[10px] text-white/50">{BRAND.tagline}</p>
           </div>
           <button onClick={onClose} className="ml-auto lg:hidden">
-            <X />
+            <X size={18} />
           </button>
         </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-          {nav.map(({ href, label, icon: Icon }) => (
-            <Link
-              onClick={onClose}
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium text-white/70 hover:bg-white/10 hover:text-white",
-                path === href || path.startsWith(href + "/")
-                  ? "bg-[#d3a64c]/15 text-[#f1c86c]"
-                  : "",
-              )}
-            >
-              <Icon size={18} />
-              {label}
-            </Link>
-          ))}
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto p-2.5">
+          {nav.map(({ href, label, icon: Icon }) => {
+            const active = path === href || path.startsWith(href + "/");
+            return (
+              <Link
+                onClick={onClose}
+                key={href}
+                href={href}
+                className={cn(
+                  "app-sidebar-link",
+                  active ? "app-sidebar-link--active" : "",
+                )}
+              >
+                <span className="app-sidebar-link-icon">
+                  <Icon size={16} />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
         </nav>
-        <div className="border-t border-white/10 p-4 text-xs text-white/45">
+        <div className="app-sidebar-footer">
           Input → Output → Waste → Balance
         </div>
       </aside>

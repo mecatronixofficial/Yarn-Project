@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Save, Trash2, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { toast } from "@/lib/toast-store";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,13 +95,17 @@ export function OrderEditForm({
 
   const save = async () => {
     setError("");
-    if (!customerId) { setError("Select a customer."); return; }
-    if (items.length === 0) { setError("Add at least one order item."); return; }
+    const reject = (message: string) => {
+      setError(message);
+      toast.warning(message, "Check sales order");
+    };
+    if (!customerId) { reject("Select a customer."); return; }
+    if (items.length === 0) { reject("Add at least one order item."); return; }
     if (items.some((item) => !item.fabricType.trim() || !item.yarnType.trim() || !item.yarnCount.trim() || !item.color.trim())) {
-      setError("Fabric type, yarn type, yarn count, and color are required for every item."); return;
+      reject("Fabric type, yarn type, yarn count, and color are required for every item."); return;
     }
     if (items.some((item) => Number(item.quantityKg) <= 0 || Number(item.rate || 0) < 0)) {
-      setError("Every item must have a positive quantity and a non-negative rate."); return;
+      reject("Every item must have a positive quantity and a non-negative rate."); return;
     }
     setSaving(true);
     try {

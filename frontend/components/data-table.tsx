@@ -16,12 +16,20 @@ export function DataTable<T>({
   columns,
   data,
   searchPlaceholder = "Search...",
+  filter: controlledFilter,
+  onFilterChange,
+  hideSearch = false,
 }: {
   columns: ColumnDef<T, any>[];
   data: T[];
   searchPlaceholder?: string;
+  filter?: string;
+  onFilterChange?: (value: string) => void;
+  hideSearch?: boolean;
 }) {
-  const [filter, setFilter] = useState("");
+  const [internalFilter, setInternalFilter] = useState("");
+  const filter = controlledFilter ?? internalFilter;
+  const setFilter = onFilterChange ?? setInternalFilter;
   const table = useReactTable({
     data,
     columns,
@@ -35,14 +43,16 @@ export function DataTable<T>({
   });
   return (
     <div>
-      <div className="mb-4 flex max-w-sm items-center gap-2">
-        <Search className="text-gray-400" size={17} />
-        <Input
-          placeholder={searchPlaceholder}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </div>
+      {!hideSearch && (
+        <div className="mb-4 flex max-w-sm items-center gap-2">
+          <Search className="text-gray-400" size={17} />
+          <Input
+            placeholder={searchPlaceholder}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </div>
+      )}
       <div className="overflow-x-auto rounded-xl border">
         <table className="w-full min-w-[800px] text-sm">
           <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
@@ -77,14 +87,15 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-      <div className="mt-4 flex items-center justify-end gap-2 text-xs text-gray-500">
-        <span>
+      <div className="dt-pagination mt-4 flex items-center justify-end gap-2 text-xs text-gray-500">
+        <span className="dt-page-info">
           Page {table.getState().pagination.pageIndex + 1} of{" "}
           {Math.max(1, table.getPageCount())}
         </span>
         <Button
           size="sm"
           variant="outline"
+          className="dt-page-btn"
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
@@ -93,6 +104,7 @@ export function DataTable<T>({
         <Button
           size="sm"
           variant="outline"
+          className="dt-page-btn"
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >

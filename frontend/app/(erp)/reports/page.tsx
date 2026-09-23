@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { ColumnDef } from "@tanstack/react-table";
-import { Download, FileText } from "lucide-react";
+import { BarChart3, Download, FileText, Search } from "lucide-react";
 import { api, API_URL } from "@/lib/api";
 import { kg } from "@/lib/utils";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 type R = {
   productionNo: string;
   orderNo: string;
@@ -22,6 +23,7 @@ type R = {
 };
 export default function Reports() {
   const [rows, setRows] = useState<R[]>([]);
+  const [filter, setFilter] = useState("");
   useEffect(() => {
     api<R[]>("/reports/production").then(setRows);
   }, []);
@@ -48,43 +50,74 @@ export default function Reports() {
       },
       { header: "Dyeing", cell: ({ row }) => kg(row.original.dyeingOutputKg) },
       { header: "QC", cell: ({ row }) => kg(row.original.qcApprovedKg) },
-      { header: "Status", accessorKey: "status" },
+      {
+        header: "Status",
+        cell: ({ row }) => {
+          const status = row.original.status;
+          const upper = status.toUpperCase();
+          const tone = /COMPLETE|CLOSED|DELIVERED|APPROVED/.test(upper)
+            ? "success"
+            : /CANCEL|REJECT|HOLD/.test(upper)
+              ? "danger"
+              : "warning";
+          return <Badge tone={tone}>{status.replaceAll("_", " ")}</Badge>;
+        },
+      },
     ],
     [],
   );
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold">Production Reports</h2>
-          <p className="text-sm text-gray-500">
-            Export the same report to Excel or PDF.
-          </p>
+    <div className="reports-page">
+      <div className="reports-list-header flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <span className="reports-page-icon">
+            <BarChart3 size={18} />
+          </span>
+          <div>
+            <h2 className="text-lg font-bold md:text-xl">Production Output Register</h2>
+            <p className="text-xs text-gray-500">Export the same report to Excel or PDF.</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              download("/reports/production.xlsx", "production-report.xlsx")
-            }
-          >
-            <Download size={16} />
-            Excel
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              download("/reports/production.pdf", "production-report.pdf")
-            }
-          >
-            <FileText size={16} />
-            PDF
-          </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="reports-search flex items-center gap-2">
+            <Search className="text-gray-400" size={17} />
+            <Input
+              placeholder="Search production, customer, fabric..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="reports-action-btn reports-action-btn--outline"
+              onClick={() =>
+                download("/reports/production.xlsx", "production-report.xlsx")
+              }
+            >
+              <Download size={16} />
+              Excel
+            </Button>
+            <Button
+              className="reports-action-btn"
+              onClick={() =>
+                download("/reports/production.pdf", "production-report.pdf")
+              }
+            >
+              <FileText size={16} />
+              PDF
+            </Button>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <DataTable data={rows} columns={cols} />
-      </CardContent>
-    </Card>
+      </div>
+
+      <DataTable
+        data={rows}
+        columns={cols}
+        filter={filter}
+        onFilterChange={setFilter}
+        hideSearch
+      />
+    </div>
   );
 }
